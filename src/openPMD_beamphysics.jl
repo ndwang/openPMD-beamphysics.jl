@@ -3,6 +3,7 @@ module openPMD_beamphysics
 # External dependencies
 using HDF5
 using Plots
+using StatsBase
 using Statistics
 using LinearAlgebra
 using Distributions

@@ -139,24 +139,24 @@ end
 
 function avg(pg::ParticleGroup, key::String)
     dat = getproperty(pg, Symbol(key))
-    if isscalar(dat)
-        return dat
+    if length(dat) == 1
+        return dat[1]
     end
-    return mean(dat, weights=pg.weight)
+    return mean(dat, weights(pg.weight))
 end
 
 function std(pg::ParticleGroup, key::String)
     dat = getproperty(pg, Symbol(key))
-    if isscalar(dat)
+    if length(dat) == 1
         return 0
     end
     avg_dat = avg(pg, key)
-    return sqrt(mean((dat .- avg_dat).^2, weights=pg.weight))
+    return sqrt(mean((dat .- avg_dat).^2, weights(pg.weight)))
 end
 
 function cov(pg::ParticleGroup, keys::String...)
     dats = [getproperty(pg, Symbol(key)) for key in keys]
-    return cov(dats, weights=pg.weight)
+    return cov(dats, weights(pg.weight))
 end
 
 # TODO: multidimensional histograms
@@ -262,7 +262,7 @@ function Base.getindex(pg::ParticleGroup, x)
     end
 
     if startswith(x, "cov_")
-        subkeys = split(x[5:end], "__")
+        subkeys = split(x[5:end], "_")
         @assert length(subkeys) == 2 "Too many properties in covariance request: $x"
         return cov(pg, subkeys...)[1, 2]
     elseif startswith(x, "delta_")
