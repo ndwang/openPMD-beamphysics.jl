@@ -4,13 +4,14 @@ module openPMD_beamphysics
 using HDF5
 using Plots
 using StatsBase
-using Statistics
 using LinearAlgebra
 using Distributions
 using AtomicAndPhysicalConstants
 
 # Include all source files in dependency order
 include("particles.jl")
+
+@APCdef
 
 # Version info
 const VERSION = v"0.1.0"

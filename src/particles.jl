@@ -54,12 +54,12 @@ Base.length(pg::ParticleGroup) = length(pg.x)
 
 # Derived properties
 function Base.getproperty(pg::ParticleGroup, s::Symbol)
-    if s == "n_particle"
+    if s == :n
         return length(pg)
-    elseif s == "n_alive"
+    elseif s == :n_alive
         return count(pg.status .== 1)
     elseif s == :n_dead
-        return pg.n_particle - pg.n_alive
+        return pg.n - pg.n_alive
     elseif s == :mass
         return massof(pg.species)
     elseif s == :species_charge
@@ -145,6 +145,10 @@ function avg(pg::ParticleGroup, key::String)
     return mean(dat, weights(pg.weight))
 end
 
+function delta(pg::ParticleGroup, key::String)
+    return getproperty(pg, Symbol(key)) .- avg(pg, key)
+end
+
 function std(pg::ParticleGroup, key::String)
     dat = getproperty(pg, Symbol(key))
     if length(dat) == 1
@@ -154,9 +158,9 @@ function std(pg::ParticleGroup, key::String)
     return sqrt(mean((dat .- avg_dat).^2, weights(pg.weight)))
 end
 
-function cov(pg::ParticleGroup, keys::String...)
-    dats = [getproperty(pg, Symbol(key)) for key in keys]
-    return cov(dats, weights(pg.weight))
+function cov(pg::ParticleGroup, keys::SubString...)
+    dats = hcat([getproperty(pg, Symbol(key)) for key in keys]...)
+    return StatsBase.cov(dats, weights(pg.weight), 1)
 end
 
 # TODO: multidimensional histograms
@@ -263,7 +267,7 @@ function Base.getindex(pg::ParticleGroup, x)
 
     if startswith(x, "cov_")
         subkeys = split(x[5:end], "_")
-        @assert length(subkeys) == 2 "Too many properties in covariance request: $x"
+        @assert length(subkeys) == 2 "Need 2 properties in covariance request: $x"
         return cov(pg, subkeys...)[1, 2]
     elseif startswith(x, "delta_")
         return delta(pg, x[7:end])
