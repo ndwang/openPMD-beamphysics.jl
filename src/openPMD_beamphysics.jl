@@ -7,11 +7,11 @@ using StatsBase
 using LinearAlgebra
 using Distributions
 using AtomicAndPhysicalConstants
+@APCdef
 
 # Include all source files in dependency order
+include("statistics.jl")
 include("particles.jl")
-
-@APCdef
 
 # Version info
 const VERSION = v"0.1.0"

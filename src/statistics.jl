@@ -18,7 +18,7 @@ function norm_emit_calc(particle_group, planes=["x"])
         push!(vars, "p" * k)
     end
 
-    S = particle_group.cov(vars...)
+    S = cov(particle_group, vars...)
     mc2 = particle_group.mass
     norm_emit = sqrt(det(S)) / mc2^dim
 
@@ -41,10 +41,10 @@ This is a simple calculation. Makes no assumptions about units.
 - gamma =  <p, p>/emit
 - emit = det(sigma_mat)
 """
-function twiss_calc(sigma_mat2)
+function twiss_calc(::AbstractMatrix{T}) where {T}
     @assert size(sigma_mat2) == (2, 2) "Bad shape: $(size(sigma_mat2)). This should be (2,2)"
     
-    twiss = Dict{String,Float64}()
+    twiss = Dict{String,T}()
     emit = sqrt(det(sigma_mat2))
     twiss["alpha"] = -sigma_mat2[1, 2] / emit
     twiss["beta"] = sigma_mat2[1, 1] / emit
@@ -54,6 +54,7 @@ function twiss_calc(sigma_mat2)
     return twiss
 end
 
+#=
 """
     twiss_ellipse_points(sigma_mat2, n_points=36)
 
@@ -576,3 +577,4 @@ function bunching(z::AbstractArray, wavelength::Real, weight=nothing)
     f = exp.(im .* k .* z)
     return sum(weight .* f) / sum(weight)
 end
+=#

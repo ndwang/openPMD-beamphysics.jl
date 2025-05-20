@@ -166,8 +166,6 @@ end
 # TODO: multidimensional histograms
 # function histogramdd(pg::ParticleGroup, keys::String...; bins=10, range=nothing)
 
-# Beam statistics (need statistics.jl)
-#=
 function norm_emit_x(pg::ParticleGroup)
     return norm_emit_calc(pg, ["x"])
 end
@@ -180,7 +178,7 @@ function norm_emit_4d(pg::ParticleGroup)
     return norm_emit_calc(pg, ["x", "y"])
 end
 
-
+#=
 function twiss(pg::ParticleGroup, plane="x", fraction=1, p0c=nothing)
     d = Dict{String,Any}()
     for p in plane
