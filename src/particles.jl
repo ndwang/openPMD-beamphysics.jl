@@ -52,6 +52,18 @@ end
 # Base methods
 Base.length(pg::ParticleGroup) = length(pg.x)
 
+function norm_emit_x(pg::ParticleGroup)
+    return norm_emit_calc(pg, ["x"])
+end
+
+function norm_emit_y(pg::ParticleGroup)
+    return norm_emit_calc(pg, ["y"])
+end
+
+function norm_emit_4d(pg::ParticleGroup)
+    return norm_emit_calc(pg, ["x", "y"])
+end
+
 # Derived properties
 function Base.getproperty(pg::ParticleGroup, s::Symbol)
     if s == :n
@@ -98,6 +110,12 @@ function Base.getproperty(pg::ParticleGroup, s::Symbol)
         return pg.py ./ pg.energy
     elseif s == :beta_z
         return pg.pz ./ pg.energy
+    elseif s == :norm_emit_x
+        return norm_emit_x(pg)
+    elseif s == :norm_emit_y
+        return norm_emit_y(pg)
+    elseif s == :norm_emit_4d
+        return norm_emit_4d(pg)
     end
     return getfield(pg, s)
 end
@@ -158,25 +176,13 @@ function std(pg::ParticleGroup, key::String)
     return sqrt(mean((dat .- avg_dat).^2, weights(pg.weight)))
 end
 
-function cov(pg::ParticleGroup, keys::SubString...)
+function cov(pg::ParticleGroup, keys::AbstractString...)
     dats = hcat([getproperty(pg, Symbol(key)) for key in keys]...)
     return StatsBase.cov(dats, weights(pg.weight), 1)
 end
 
 # TODO: multidimensional histograms
 # function histogramdd(pg::ParticleGroup, keys::String...; bins=10, range=nothing)
-
-function norm_emit_x(pg::ParticleGroup)
-    return norm_emit_calc(pg, ["x"])
-end
-
-function norm_emit_y(pg::ParticleGroup)
-    return norm_emit_calc(pg, ["y"])
-end
-
-function norm_emit_4d(pg::ParticleGroup)
-    return norm_emit_calc(pg, ["x", "y"])
-end
 
 #=
 function twiss(pg::ParticleGroup, plane="x", fraction=1, p0c=nothing)
