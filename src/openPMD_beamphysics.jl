@@ -13,6 +13,8 @@ using AtomicAndPhysicalConstants
 include("statistics.jl")
 include("particles.jl")
 
+export ParticleGroup, single_particle
+
 # Version info
 const VERSION = v"0.1.0"
 
