@@ -80,11 +80,11 @@ end
 const COMPONENT_ALIAS = Dict(v => k for (k, v) in COMPONENT_FROM_ALIAS)
 
 """
-    particle_paths(h5, key="particlesPath")
+    particle_paths(h5; key="particlesPath")
 
 Uses the basePath and particlesPath to find where openPMD particles should be.
 """
-function particle_paths(h5, key="particlesPath")
+function particle_paths(h5; key="particlesPath")
     basePath = String(h5.attrs["basePath"])
     particlesPath = String(h5.attrs[key])
 
@@ -98,11 +98,11 @@ function particle_paths(h5, key="particlesPath")
 end
 
 """
-    field_paths(h5, key="externalFieldPath")
+    field_paths(h5; key="externalFieldPath")
 
 Looks for the External Fields.
 """
-function field_paths(h5, key="externalFieldPath")
+function field_paths(h5; key="externalFieldPath")
     if !haskey(h5.attrs, key)
         return String[]
     end
@@ -163,7 +163,7 @@ function is_legacy_fortran_data_ordering(component_data_attrs)
 end
 
 """
-    component_data(h5, slice=:, unit_factor=1, axis_labels=nothing)
+    component_data(h5; slice=:, unit_factor=1, axis_labels=nothing)
 
 Returns an array from an h5 component.
 
@@ -177,7 +177,7 @@ Parameters:
   * ("x", "y", "z")
   * ("r", "theta", "z")
 """
-function component_data(h5, slice=:, unit_factor=1, axis_labels=nothing)
+function component_data(h5; slice=:, unit_factor=1, axis_labels=nothing)
     # Look for unitSI factor
     factor = haskey(h5.attrs, "unitSI") ? h5.attrs["unitSI"] : 1.0
 
@@ -240,12 +240,12 @@ function offset_component_name(component_name)
 end
 
 """
-    particle_array(h5, component, slice=:, include_offset=true)
+    particle_array(h5, component; slice=:, include_offset=true)
 
 Main routine to return particle arrays in fixed units.
 All units are SI except momentum, which will be in eV/c.
 """
-function particle_array(h5, component, slice=:, include_offset=true)
+function particle_array(h5, component; slice=:, include_offset=true)
     # Handle aliases
     if haskey(COMPONENT_FROM_ALIAS, component)
         component = COMPONENT_FROM_ALIAS[component]
@@ -361,14 +361,14 @@ const OPTIONAL_FIELD_ATTRS = Dict{String, Any}(
 )
 
 """
-    load_field_attrs(attr, verbose=false)
+    load_field_attrs(attr; verbose=false)
 
 Loads FieldMesh required and optional attributes from a dict_like object.
 Non-standard attributes will be collected in an 'other' dict.
 
 Returns tuple: (attrs, other)
 """
-function load_field_attrs(attr, verbose=false)
+function load_field_attrs(attr; verbose=false)
     # Get all attrs. Will pop.
     a = Dict(attr)
 
