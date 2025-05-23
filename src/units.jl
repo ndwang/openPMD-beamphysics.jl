@@ -449,3 +449,147 @@ function write_dataset_and_unit_h5(h5, name::String, data; unit=nothing)
         write_unit_h5(h5[name], unit)
     end
 end
+
+# ParticleGroup units
+const PARTICLEGROUP_UNITS = Dict{String, Unitful.FreeUnits}(
+    # Basic quantities
+    "n_particle" => NoUnits,
+    "status" => NoUnits,
+    "id" => NoUnits,
+    "n_alive" => NoUnits,
+    "n_dead" => NoUnits,
+    
+    # Time
+    "t" => u"s",
+    "z/c" => u"s",
+    
+    # Energy and mass
+    "energy" => u"eV",
+    "kinetic_energy" => u"eV",
+    "mass" => u"eV",
+    "higher_order_energy_spread" => u"eV",
+    "higher_order_energy" => u"eV",
+    
+    # Momentum
+    "px" => u"eV/c",
+    "py" => u"eV/c",
+    "pz" => u"eV/c",
+    "p" => u"eV/c",
+    "pr" => u"eV/c",
+    "ptheta" => u"eV/c",
+    
+    # Position
+    "x" => u"m",
+    "y" => u"m",
+    "z" => u"m",
+    "r" => u"m",
+    "Jx" => u"m",
+    "Jy" => u"m",
+    
+    # Dimensionless quantities
+    "beta" => NoUnits,
+    "beta_x" => NoUnits,
+    "beta_y" => NoUnits,
+    "beta_z" => NoUnits,
+    "gamma" => NoUnits,
+    "bunching" => NoUnits,
+    
+    # Angles
+    "theta" => u"rad",
+    "bunching_phase" => u"rad",
+    
+    # Charge
+    "charge" => u"C",
+    "species_charge" => u"C",
+    "weight" => u"C",
+    "average_current" => u"A",
+    
+    # Emittance
+    "norm_emit_x" => u"m",
+    "norm_emit_y" => u"m",
+    "norm_emit_4d" => u"m^2",
+    
+    # Angular momentum
+    "Lz" => u"m*eV/c",
+    
+    # Angles
+    "xp" => u"rad",
+    "yp" => u"rad",
+
+    # Normalized coordinates
+    "x_bar" => u"m^(1/2)",
+    "px_bar" => u"m^(1/2)",
+    "y_bar" => u"m^(1/2)",
+    "py_bar" => u"m^(1/2)"
+)
+
+# Add field components
+for component in ["", "x", "y", "z", "theta", "r"]
+    PARTICLEGROUP_UNITS["E$(component)"] = u"V/m"
+    PARTICLEGROUP_UNITS["B$(component)"] = u"T"
+end
+
+# Add Twiss parameters
+for plane in ("x", "y")
+    PARTICLEGROUP_UNITS["twiss_alpha_$(plane)"] = NoUnits
+    PARTICLEGROUP_UNITS["twiss_etap_$(plane)"] = NoUnits
+    PARTICLEGROUP_UNITS["twiss_beta_$(plane)"] = u"m"
+    PARTICLEGROUP_UNITS["twiss_eta_$(plane)"] = u"m"
+    PARTICLEGROUP_UNITS["twiss_emit_$(plane)"] = u"m"
+    PARTICLEGROUP_UNITS["twiss_norm_emit_$(plane)"] = u"m"
+    PARTICLEGROUP_UNITS["twiss_gamma_$(plane)"] = u"m^-1"
+end
+
+"""
+    pg_units(key::String) -> Unitful.FreeUnits
+
+Returns the unit for any attribute in a ParticleGroup.
+
+# Arguments
+- `key::String`: The attribute key to get the unit for
+
+# Returns
+- `Unitful.FreeUnits`: The unit for the attribute
+
+# Throws
+- `ErrorException`: If no unit is known for the key
+"""
+function pg_units(key::String)
+    # Basic cases
+    if haskey(PARTICLEGROUP_UNITS, key)
+        return PARTICLEGROUP_UNITS[key]
+    end
+
+    # Operators
+    for prefix in ["sigma_", "mean_", "min_", "max_", "ptp_", "delta_"]
+        if startswith(key, prefix)
+            nkey = key[length(prefix)+1:end]
+            return pg_units(nkey)
+        end
+    end
+
+    # Covariance
+    if startswith(key, "cov_")
+        subkeys = split(key[5:end], "__")
+        length(subkeys) == 2 || error("Invalid covariance key format: $key")
+        unit0 = PARTICLEGROUP_UNITS[subkeys[1]]
+        unit1 = PARTICLEGROUP_UNITS[subkeys[2]]
+        return unit0 * unit1
+    end
+
+    # Fields
+    if startswith(key, "electricField")
+        return u"V/m"
+    end
+    if startswith(key, "magneticField")
+        return u"T"
+    end
+    if startswith(key, "bunching_phase")
+        return u"rad"
+    end
+    if startswith(key, "bunching")
+        return NoUnits
+    end
+
+    error("No known unit for: $key")
+end
