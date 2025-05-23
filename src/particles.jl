@@ -66,12 +66,12 @@ end
 
 # Derived properties
 function Base.getproperty(pg::ParticleGroup, s::Symbol)
-    if s == :n
+    if s == :n_particle
         return length(pg)
     elseif s == :n_alive
         return count(pg.status .== 1)
     elseif s == :n_dead
-        return pg.n - pg.n_alive
+        return pg.n_particle - pg.n_alive
     elseif s == :mass
         return massof(pg.species)
     elseif s == :species_charge
@@ -116,6 +116,18 @@ function Base.getproperty(pg::ParticleGroup, s::Symbol)
         return norm_emit_y(pg)
     elseif s == :norm_emit_4d
         return norm_emit_4d(pg)
+    elseif s == :x_bar
+        return normalized_particle_coordinate(pg, "x")
+    elseif s == :px_bar
+        return normalized_particle_coordinate(pg, "px")
+    elseif s == :y_bar
+        return normalized_particle_coordinate(pg, "y")
+    elseif s == :py_bar
+        return normalized_particle_coordinate(pg, "py")
+    elseif s == :Jx
+        return hypot(pg.x_bar, pg.px_bar)
+    elseif s == :Jy
+        return hypot(pg.y_bar, pg.py_bar)
     end
     return getfield(pg, s)
 end
@@ -184,19 +196,18 @@ end
 # TODO: multidimensional histograms
 # function histogramdd(pg::ParticleGroup, keys::String...; bins=10, range=nothing)
 
-#=
 function twiss(pg::ParticleGroup, plane="x", fraction=1, p0c=nothing)
-    d = Dict{String,Any}()
+    d = Dict{String,Float64}()
     for p in plane
-        merge!(d, particle_twiss_dispersion(pg, plane=p, fraction=fraction, p0c=p0c))
+        merge!(d, twiss_dispersion(pg, plane=string(p), fraction=fraction, p0c=p0c))
     end
     return d
 end
 
-function twiss_match(pg::ParticleGroup, beta=nothing, alpha=nothing, plane="x", p0c=nothing, inplace=false)
+# TODO: twiss_match
+#= function twiss_match(pg::ParticleGroup, beta=nothing, alpha=nothing, plane="x", p0c=nothing, inplace=false)
     return matched_particles(pg, beta=beta, alpha=alpha, plane=plane, p0c=p0c, inplace=inplace)
-end
-=#
+end =#
 
 # Coordinate checks
 function in_z_coordinates(pg::ParticleGroup)
@@ -211,21 +222,21 @@ function average_current(pg::ParticleGroup)
     dt = ptp(pg, "t")
     if dt == 0
         # must be in t coordinates. Calc with
-        dt = ptp(pg, "z") / (avg(pg, "beta_z") * c_light)
+        dt = ptp(pg, "z") / (avg(pg, "beta_z") * APC.C_LIGHT)
     end
     return pg.charge / dt
 end
 
 # Drift methods
 function drift!(pg::ParticleGroup, delta_t::Real)
-    pg.x .+= pg.beta_x .* c_light .* delta_t
-    pg.y .+= pg.beta_y .* c_light .* delta_t
-    pg.z .+= pg.beta_z .* c_light .* delta_t
+    pg.x .+= pg.beta_x .* APC.C_LIGHT .* delta_t
+    pg.y .+= pg.beta_y .* APC.C_LIGHT .* delta_t
+    pg.z .+= pg.beta_z .* APC.C_LIGHT .* delta_t
     pg.t .+= delta_t
 end
 
 function drift_to_z!(pg::ParticleGroup, z::Real)
-    dt = (z .- pg.z) ./ (pg.beta_z .* c_light)
+    dt = (z .- pg.z) ./ (pg.beta_z .* APC.C_LIGHT)
     drift!(pg, dt)
     # Fix z to be exactly this value
     pg.z .= z
@@ -266,7 +277,7 @@ function Base.getindex(pg::ParticleGroup, x)
 
     # Special case for z/c
     if x == "z/c"
-        return pg.z ./ c_light
+        return pg.z ./ APC.C_LIGHT
     end
 
     if startswith(x, "cov_")
@@ -304,7 +315,7 @@ function Base.:(==)(pg1::ParticleGroup, pg2::ParticleGroup)
 end
 
 # Helper functions
-function split_particles(pg::ParticleGroup; n_chunks=100, key="z")
+function split(pg::ParticleGroup; n_chunks=100, key="z")
     # Sorting
     zlist = getproperty(pg, Symbol(key))
     iz = sortperm(zlist)
@@ -352,4 +363,75 @@ function join_particle_groups(pgs::ParticleGroup...)
     return ParticleGroup{eltype(x)}(
         x, px, y, py, z, pz, t, status, weight, species0, id
     )
+end
+
+"""
+    ParticleGroup(h5)
+
+Load particles into a ParticleGroup from an HDF5 file in openPMD format.
+
+# Arguments
+- `h5`: HDF5 handle or group containing particle data
+
+# Returns
+- `ParticleGroup`: Particle group containing the loaded data
+"""
+function ParticleGroup(h5)
+    # Get attributes
+    attributes = attrs(h5)
+
+    # Get species type
+    species = Species(attributes["speciesType"])
+
+    # Get number of particles
+    n_particle = Int(attributes["numParticles"])
+
+    # Get total charge
+    total_charge = attributes["totalCharge"] * attributes["chargeUnitSI"]
+
+    # Get position and momentum data
+    x = particle_array(h5, "x")
+    px = particle_array(h5, "px")
+    y = particle_array(h5, "y")
+    py = particle_array(h5, "py")
+    z = particle_array(h5, "z")
+    pz = particle_array(h5, "pz")
+    t = particle_array(h5, "t")
+
+    # Get particle status
+    if haskey(h5, "particleStatus")
+        status = particle_array(h5, "particleStatus")
+    else
+        status = fill(1, n_particle)
+    end
+
+    # Get particle weights
+    if haskey(h5, "weight")
+        weight = particle_array(h5, "weight")
+        if length(weight) == 1
+            weight = fill(weight[1], n_particle)
+        end
+    else
+        weight = fill(total_charge / n_particle, n_particle)
+    end
+
+    return ParticleGroup(x, px, y, py, z, pz, t, status, weight, species)
+end
+
+"""
+    ParticleGroup(file::String)
+
+Load particles into a ParticleGroup from an HDF5 file in openPMD format.
+
+# Arguments
+- `file::String`: Path to the HDF5 file
+
+# Returns
+- `ParticleGroup`: Particle group containing the loaded data
+"""
+function ParticleGroup(file::String)
+    h5 = h5open(file, "r")
+    pg = ParticleGroup(h5)
+    close(h5)
+    return pg
 end

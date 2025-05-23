@@ -186,13 +186,14 @@ function twiss_dispersion(sigma3::Matrix)
     emit = sqrt(eb * eg - ea^2)
 
     # Form the output dict
-    d = Dict{String,Float64}()
-    d["alpha"] = ea / emit
-    d["beta"] = eb / emit
-    d["gamma"] = eg / emit
-    d["emit"] = emit
-    d["eta"] = xd / delta2
-    d["etap"] = pd / delta2
+    d = Dict{String,Float64}(
+        "alpha" => ea / emit,
+        "beta" => eb / emit,
+        "gamma" => eg / emit,
+        "emit" => emit,
+        "eta" => xd / delta2,
+        "etap" => pd / delta2
+    )
 
     return d
 end

@@ -376,8 +376,5 @@ function load_field_attrs(attr; verbose=false)
         end
     end
 
-    # Decode
-    attrs = decode_attrs(attrs)
-
     return attrs, other
 end
