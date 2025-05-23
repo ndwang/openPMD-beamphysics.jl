@@ -41,7 +41,7 @@ This is a simple calculation. Makes no assumptions about units.
 - gamma =  <p, p>/emit
 - emit = det(sigma_mat)
 """
-function twiss_calc(::AbstractMatrix{T}) where {T}
+function twiss_calc(sigma_mat2::AbstractMatrix)
     @assert size(sigma_mat2) == (2, 2) "Bad shape: $(size(sigma_mat2)). This should be (2,2)"
     
     twiss = Dict{String,T}()
@@ -154,9 +154,10 @@ function matched_particles(particle_group, beta=nothing, alpha=nothing, plane="x
 
     return P
 end
+=#
 
 """
-    twiss_dispersion_calc(sigma3)
+    twiss_dispersion(sigma3)
 
 Twiss and Dispersion calculation from a 3x3 sigma (covariance) matrix from particles
 x, p, delta
@@ -172,7 +173,7 @@ Returns a dict with:
     eta
     etap
 """
-function twiss_dispersion_calc(sigma3)
+function twiss_dispersion(sigma3::Matrix)
     # Collect terms
     delta2 = sigma3[3, 3]
     xd = sigma3[1, 3]
@@ -197,7 +198,7 @@ function twiss_dispersion_calc(sigma3)
 end
 
 """
-    particle_twiss_dispersion(particle_group, plane="x", fraction=1, p0c=nothing)
+    twiss_dispersion(particle_group; plane="x", fraction=1, p0c=nothing)
 
 Twiss and Dispersion calc for a ParticleGroup.
 
@@ -215,7 +216,7 @@ Returns the same output dict as twiss_dispersion_calc, but with keys suffixed wi
     etap_x
     norm_emit_x
 """
-function particle_twiss_dispersion(particle_group, plane="x", fraction=1, p0c=nothing)
+function twiss_dispersion(particle_group; plane="x", fraction=1, p0c=nothing)
     @assert plane in ["x", "y"]
 
     P = particle_group  # convenience
@@ -233,10 +234,10 @@ function particle_twiss_dispersion(particle_group, plane="x", fraction=1, p0c=no
     delta = P["p"] ./ P["mean_p"]  # - 1
 
     # Form covariance matrix
-    sigma3 = cov([x xp delta], weights=P.weight)
+    sigma3 = StatsBase.cov([x xp delta], weights(P.weight))
 
     # Actual calc
-    twiss = twiss_dispersion_calc(sigma3)
+    twiss = twiss_dispersion(sigma3)
 
     # Add norm
     twiss["norm_emit"] = twiss["emit"] * P["mean_p"] / P.mass
@@ -250,6 +251,7 @@ function particle_twiss_dispersion(particle_group, plane="x", fraction=1, p0c=no
     return out
 end
 
+#=
 """
     A_mat_calc(beta, alpha, inverse=false)
 
