@@ -37,28 +37,28 @@ const FIELD_RECORD_COMPONENTS = Dict{String, Vector{String}}(
 
 # Expected unit dimensions for particle and field records
 const EXPECTED_RECORD_UNIT_DIMENSION = Dict{String, NTuple{7, Int}}(
-    "branchIndex" => dimension("1"),
-    "chargeState" => dimension("1"),
-    "electricField" => dimension("electric_field"),
-    "magneticField" => dimension("magnetic_field"),
-    "elementIndex" => dimension("1"),
-    "locationInElement" => dimension("1"),
-    "momentum" => dimension("momentum"),
-    "momentumOffset" => dimension("momentum"),
-    "photonPolarizationAmplitude" => dimension("electric_field"),
-    "photonPolarizationPhase" => dimension("1"),
-    "sPosition" => dimension("length"),
-    "totalMomentum" => dimension("momentum"),
-    "totalMomentumOffset" => dimension("momentum"),
-    "particleStatus" => dimension("1"),
-    "pathLength" => dimension("length"),
-    "position" => dimension("length"),
-    "positionOffset" => dimension("length"),
-    "spin" => dimension("1"),
-    "time" => dimension("time"),
-    "timeOffset" => dimension("time"),
-    "velocity" => dimension("velocity"),
-    "weight" => dimension("charge")
+    "branchIndex" => DIMENSION["1"],
+    "chargeState" => DIMENSION["1"],
+    "electricField" => DIMENSION["electric_field"],
+    "magneticField" => DIMENSION["magnetic_field"],
+    "elementIndex" => DIMENSION["1"],
+    "locationInElement" => DIMENSION["1"],
+    "momentum" => DIMENSION["momentum"],
+    "momentumOffset" => DIMENSION["momentum"],
+    "photonPolarizationAmplitude" => DIMENSION["electric_field"],
+    "photonPolarizationPhase" => DIMENSION["1"],
+    "sPosition" => DIMENSION["length"],
+    "totalMomentum" => DIMENSION["momentum"],
+    "totalMomentumOffset" => DIMENSION["momentum"],
+    "particleStatus" => DIMENSION["1"],
+    "pathLength" => DIMENSION["length"],
+    "position" => DIMENSION["length"],
+    "positionOffset" => DIMENSION["length"],
+    "spin" => DIMENSION["1"],
+    "time" => DIMENSION["time"],
+    "timeOffset" => DIMENSION["time"],
+    "velocity" => DIMENSION["velocity"],
+    "weight" => DIMENSION["charge"]
 )
 
 # Convenient aliases for components
@@ -85,8 +85,8 @@ const COMPONENT_ALIAS = Dict(v => k for (k, v) in COMPONENT_FROM_ALIAS)
 Uses the basePath and particlesPath to find where openPMD particles should be.
 """
 function particle_paths(h5; key="particlesPath")
-    basePath = String(h5.attrs["basePath"])
-    particlesPath = String(h5.attrs[key])
+    basePath = String(attrs(h5)["basePath"])
+    particlesPath = String(attrs(h5)[key])
 
     if !occursin("%T", basePath)
         return [basePath * particlesPath]
@@ -103,11 +103,11 @@ end
 Looks for the External Fields.
 """
 function field_paths(h5; key="externalFieldPath")
-    if !haskey(h5.attrs, key)
+    if !haskey(attrs(h5), key)
         return String[]
     end
 
-    fpath = String(h5.attrs[key])
+    fpath = String(attrs(h5)[key])
 
     if !occursin("%T", fpath)
         return [fpath]
@@ -124,7 +124,7 @@ end
 Constant record component should have 'value' and 'shape'.
 """
 function is_constant_component(h5)
-    return haskey(h5.attrs, "value") && haskey(h5.attrs, "shape")
+    return haskey(attrs(h5), "value") && haskey(attrs(h5), "shape")
 end
 
 """
@@ -133,33 +133,9 @@ end
 Get value from constant component.
 """
 function constant_component_value(h5)
-    unitSI = h5.attrs["unitSI"]
-    val = h5.attrs["value"]
+    unitSI = attrs(h5)["unitSI"]
+    val = attrs(h5)["value"]
     return unitSI == 1.0 ? val : val * unitSI
-end
-
-"""
-    component_unit_dimension(h5)
-
-Return the unit dimension tuple.
-"""
-function component_unit_dimension(h5)
-    return Tuple(h5.attrs["unitDimension"])
-end
-
-"""
-    is_legacy_fortran_data_ordering(component_data_attrs)
-
-Check if data is in legacy Fortran ordering.
-"""
-function is_legacy_fortran_data_ordering(component_data_attrs)
-    if haskey(component_data_attrs, "gridDataOrder")
-        @warn "Legacy gridDataOrder in component. Please remove and use axisLabels at the group level."
-        if decode_attr(component_data_attrs["gridDataOrder"]) == "F"
-            return true
-        end
-    end
-    return false
 end
 
 """
@@ -179,7 +155,7 @@ Parameters:
 """
 function component_data(h5; slice=:, unit_factor=1, axis_labels=nothing)
     # Look for unitSI factor
-    factor = haskey(h5.attrs, "unitSI") ? h5.attrs["unitSI"] : 1.0
+    factor = haskey(attrs(h5), "unitSI") ? attrs(h5)["unitSI"] : 1.0
 
     # Additional conversion factor
     if unit_factor != 1
@@ -187,32 +163,35 @@ function component_data(h5; slice=:, unit_factor=1, axis_labels=nothing)
     end
 
     if is_constant_component(h5)
-        dat = fill(h5.attrs["value"], h5.attrs["shape"])[slice]
+        dat = fill(attrs(h5)["value"], Tuple(attrs(h5)["shape"]))[slice]
     # Check multidimensional for data ordering, convert to 'x', 'y', 'z' order
     elseif ndims(h5) > 1
         if isnothing(axis_labels)
             throw(ArgumentError("axis_labels required for multidimensional arrays"))
         end
 
-        # Reorder to x, y, z
-        if axis_labels in [("z", "y", "x"), ("z", "theta", "r")]
-            if slice isa Tuple
-                # Need to transpose the slice ordering
-                slice = reverse(slice)
-            end
-
-            # Retrieve dataset and transpose for C order
-            dat = h5[slice]
-            dat = permutedims(dat)
-        elseif axis_labels in [("x", "y", "z"), ("r", "theta", "z")]
-            dat = h5[slice]
+        # Define the standard order for each coordinate system
+        cartesian_std = ("x", "y", "z")
+        cylindrical_std = ("r", "theta", "z")
+        
+        # Get the permutation indices to convert from current order to standard order
+        if all(label in cartesian_std for label in axis_labels)
+            # Cartesian coordinates
+            perm_indices = [findfirst(isequal(label), cartesian_std) for label in axis_labels]
+            dat = Array(h5)[slice]
+            dat = permutedims(dat, perm_indices)
+        elseif all(label in cylindrical_std for label in axis_labels)
+            # Cylindrical coordinates
+            perm_indices = [findfirst(isequal(label), cylindrical_std) for label in axis_labels]
+            dat = Array(h5)[slice]
+            dat = permutedims(dat, perm_indices)
         else
             # C-order
-            dat = h5[slice]
+            dat = Array(h5)[slice]
         end
     else
         # 1-D array
-        dat = h5[slice]
+        dat = Array(h5)[slice]
     end
 
     if factor != 1
@@ -252,7 +231,7 @@ function particle_array(h5, component; slice=:, include_offset=true)
     end
 
     if component in ["momentum/x", "momentum/y", "momentum/z"]
-        unit_factor = c_light / e_charge  # convert J/(m/s) to eV/c
+        unit_factor = APC.C_LIGHT / APC.E_CHARGE  # convert J/(m/s) to eV/c
     else
         unit_factor = 1.0
     end
@@ -276,7 +255,7 @@ end
 Look for possible components in a particle group.
 """
 function all_components(h5)
-    components = String[]
+    components = Vector{String}()
     for record_name in keys(h5)
         if !haskey(PARTICLE_RECORD_COMPONENTS, record_name)
             continue
@@ -309,7 +288,7 @@ function component_str(particle_group, name)
     g = particle_group[name]
     record_name = split(name, "/")[1]
     expected_dimension = EXPECTED_RECORD_UNIT_DIMENSION[record_name]
-    this_dimension = component_unit_dimension(g)
+    this_dimension = Tuple(attrs(g)["unitDimension"])
     dname = dimension_name(this_dimension)
     symbol = SI_SYMBOL[dname]
 
@@ -317,7 +296,7 @@ function component_str(particle_group, name)
 
     if is_constant_component(g)
         val = constant_component_value(g)
-        shape = g.attrs["shape"]
+        shape = attrs(g)["shape"]
         s *= "[constant $val with shape $shape]"
     else
         s *= "[" * string(length(g)) * " items]"
