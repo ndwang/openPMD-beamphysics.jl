@@ -10,17 +10,11 @@ Root attribute initialization.
 h5 should be the root of the file.
 """
 function pmd_init(h5, basePath="/data/%T/", particlesPath="./")
-    d = Dict(
-        "basePath" => basePath,
-        "dataType" => "openPMD",
-        "openPMD" => "2.0.0",
-        "openPMDextension" => "BeamPhysics;SpeciesType",
-        "particlesPath" => particlesPath
-    )
-    
-    for (k, v) in d
-        h5.attrs[k] = fstr(v)
-    end
+    h5["basePath"] = fstr(basePath)
+    h5["dataType"] = fstr("openPMD")
+    h5["openPMD"] = fstr("2.0.0")
+    h5["openPMDextension"] = fstr("BeamPhysics;SpeciesType")
+    h5["particlesPath"] = fstr(particlesPath)
 end
 
 """
@@ -31,16 +25,10 @@ Root attribute initialization for an openPMD-beamphysics External Field Mesh
 h5 should be the root of the file.
 """
 function pmd_field_init(h5, externalFieldPath="/ExternalFieldPath/%T/")
-    d = Dict(
-        "dataType" => "openPMD",
-        "openPMD" => "2.0.0",
-        "openPMDextension" => "BeamPhysics",
-        "externalFieldPath" => externalFieldPath
-    )
-    
-    for (k, v) in d
-        h5.attrs[k] = fstr(v)
-    end
+    h5["dataType"] = fstr("openPMD")
+    h5["openPMD"] = fstr("2.0.0")
+    h5["openPMDextension"] = fstr("BeamPhysics")
+    h5["externalFieldPath"] = fstr(externalFieldPath)
 end
 
 """
@@ -57,7 +45,7 @@ Optional data:
 See inverse routine:
     .particles.load_bunch_data
 """
-function write_pmd_bunch(h5, data, name=nothing)
+function write_pmd_bunch(h5, data; name=nothing)
     g = isnothing(name) ? h5 : create_group(h5, name)
 
     # Write into species group
@@ -65,10 +53,10 @@ function write_pmd_bunch(h5, data, name=nothing)
     g = create_group(g, species)
 
     # Attributes
-    g.attrs["speciesType"] = fstr(species)
-    g.attrs["numParticles"] = data["n_particle"]
-    g.attrs["totalCharge"] = data["charge"]
-    g.attrs["chargeUnitSI"] = 1.0
+    g["speciesType"] = fstr(species)
+    g["numParticles"] = data["n_particle"]
+    g["totalCharge"] = data["charge"]
+    g["chargeUnitSI"] = 1.0
 
     # Required Datasets
     for key in ["x", "px", "y", "py", "z", "pz", "t", "status", "weight"]
@@ -89,7 +77,7 @@ function write_pmd_bunch(h5, data, name=nothing)
 end
 
 """
-    write_pmd_field(h5, data, name=nothing)
+    write_pmd_field(h5, data; name=nothing)
 
 Data is a dict with:
     attrs: flat dict of attributes.
@@ -98,7 +86,7 @@ Data is a dict with:
 See inverse routine:
     .readers.load_field_data
 """
-function write_pmd_field(h5, data, name=nothing)
+function write_pmd_field(h5, data; name=nothing)
     g = isnothing(name) ? h5 : create_group(h5, name)
 
     # Validate attrs
@@ -109,12 +97,12 @@ function write_pmd_field(h5, data, name=nothing)
 
     # Write attributes
     for (k, v) in attrs
-        g.attrs[k] = v
+        g[k] = v
     end
 
     # All other attributes (don't change them)
     for (k, v) in other
-        g.attrs[k] = v
+        g[k] = v
     end
 
     # write components (datasets)
@@ -145,17 +133,17 @@ function write_component_data(h5, name, data, unit=nothing)
 
     if all(x -> x == dat0, data)
         g = create_group(h5, name)
-        g.attrs["value"] = dat0
-        g.attrs["shape"] = size(data)
+        g["value"] = dat0
+        g["shape"] = size(data)
     else
         h5[name] = data
         g = h5[name]
     end
 
     if !isnothing(unit)
-        g.attrs["unitSI"] = unit.unitSI
-        g.attrs["unitDimension"] = unit.unitDimension
-        g.attrs["unitSymbol"] = fstr(unit.unitSymbol)
+        g["unitSI"] = unit.unitSI
+        g["unitDimension"] = unit.unitDimension
+        g["unitSymbol"] = fstr(unit.unitSymbol)
     end
 
     return g
