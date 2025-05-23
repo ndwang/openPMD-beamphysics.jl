@@ -315,7 +315,7 @@ function Base.:(==)(pg1::ParticleGroup, pg2::ParticleGroup)
 end
 
 # Helper functions
-function split(pg::ParticleGroup; n_chunks=100, key="z")
+function split_particles(pg::ParticleGroup; n_chunks=100, key="z")
     # Sorting
     zlist = getproperty(pg, Symbol(key))
     iz = sortperm(zlist)

@@ -25,7 +25,7 @@ export load_field_attrs
 export component_data, is_constant_component, constant_component_value
 export norm_emit_calc, twiss_calc, twiss_dispersion
 export ParticleGroup, single_particle, twiss, in_z_coordinates, in_t_coordinates, average_current
-export drift!, drift_to_t!, drift_to_z!, split
+export drift!, drift_to_t!, drift_to_z!, split_particles
 
 
 # Version info
