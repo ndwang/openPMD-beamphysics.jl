@@ -150,10 +150,6 @@ function Base.show(io::IO, ::MIME"text/plain", pg::ParticleGroup)
     print(io, "<ParticleGroup with $(length(pg)) particles at 0x$memloc>")
 end
 
-function units(pg::ParticleGroup, key::String)
-    # to be implemented
-end
-
 # Statistical methods
 function min(pg::ParticleGroup, key::String)
     return minimum(getproperty(pg, Symbol(key)))
