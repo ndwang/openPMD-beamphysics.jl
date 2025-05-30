@@ -314,7 +314,48 @@ function nice_array(a)
     return a / fac, fac, prefix
 end
 
-# HDF5 tools
+
+"""
+    limits(x::AbstractArray{T}; lim::Union{Nothing, Tuple{T, T}}=nothing) -> Tuple{T, T}
+
+Get the limits of an array.
+"""
+function limits(x::AbstractArray{T}; lim::Union{Nothing, Tuple{T, T}}=nothing) where T
+    if lim !== nothing
+        xmin = lim[1] === nothing ? minimum(x) : lim[1]
+        xmax = lim[2] === nothing ? maximum(x) : lim[2]
+    else
+        xmin = minimum(x)
+        xmax = maximum(x)
+    end
+    return xmin, xmax
+end
+
+"""
+    plottable_array(x::AbstractArray; lim::Union{Nothing, Tuple{Real, Real}}=nothing) -> Tuple{AbstractArray, Float64, String, Real, Real}
+
+Scale an input array and return the scaled array, the scaling factor, the
+corresponding unit prefix, and the limits of the array.
+
+# Arguments
+- `x::AbstractArray`: The input array to scale
+- `lim::Union{Nothing, Tuple{Real, Real}}`: The limits of the array
+
+# Returns
+- scaled_array::AbstractArray: The scaled array
+- scaling::Float64: The scaling factor
+- prefix::String: The SI prefix string corresponding to the scale
+- xmin::Real: The minimum value of the array
+- xmax::Real: The maximum value of the array
+"""
+function plottable_array(x::AbstractArray; lim::Union{Nothing, Tuple{Real, Real}}=nothing)
+    xmin, xmax = limits(x; lim=lim)
+
+    _, factor, p1 = nice_array([xmin, xmax])
+
+    return x ./ factor, factor, p1, xmin, xmax
+end
+
 """
     write_unit_h5(h5, u::Unitful.FreeUnits)
 
