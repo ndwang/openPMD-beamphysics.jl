@@ -316,19 +316,12 @@ end
 
 
 """
-    limits(x::AbstractArray{T}; lim::Union{Nothing, Tuple{T, T}}=nothing) -> Tuple{T, T}
+    limits(x::AbstractArray) -> Tuple
 
 Get the limits of an array.
 """
-function limits(x::AbstractArray{T}; lim::Union{Nothing, Tuple{T, T}}=nothing) where T
-    if lim !== nothing
-        xmin = lim[1] === nothing ? minimum(x) : lim[1]
-        xmax = lim[2] === nothing ? maximum(x) : lim[2]
-    else
-        xmin = minimum(x)
-        xmax = maximum(x)
-    end
-    return xmin, xmax
+function limits(x::AbstractArray)
+    return minimum(x), maximum(x)
 end
 
 """
@@ -349,7 +342,7 @@ corresponding unit prefix, and the limits of the array.
 - xmax::Real: The maximum value of the array
 """
 function plottable_array(x::AbstractArray; lim::Union{Nothing, Tuple{Real, Real}}=nothing)
-    xmin, xmax = limits(x; lim=lim)
+    xmin, xmax = lim === nothing ? limits(x) : lim
 
     _, factor, p1 = nice_array([xmin, xmax])
 

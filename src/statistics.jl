@@ -444,12 +444,6 @@ function slice_statistics(particle_group; keys=["mean_z"], n_slice=40, slice_key
     # Split particles into slices
     slices = split_particles(particle_group; n_chunks=n_slice, key=slice_key)
 
-    # Calculate slice centers
-    slice_centers = zeros(n_slice)
-    for (i, slice) in enumerate(slices)
-        slice_centers[i] = mean(slice[slice_key])
-    end
-
     # Initialize statistics storage
     statistics = Dict{String,Vector{Float64}}()
     
@@ -492,7 +486,7 @@ function slice_statistics(particle_group; keys=["mean_z"], n_slice=40, slice_key
         end
     end
 
-    return slice_centers, statistics
+    return statistics
 end
 
 #=

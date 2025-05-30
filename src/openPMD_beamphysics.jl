@@ -12,6 +12,7 @@ using Unitful.DefaultSymbols
 @APCdef
 
 # Include all source files in dependency order
+include("utils.jl")
 include("units.jl")
 include("readers.jl")
 include("statistics.jl")
@@ -32,6 +33,7 @@ export ParticleGroup, single_particle, twiss, in_z_coordinates, in_t_coordinates
 export drift!, drift_to_t!, drift_to_z!, split_particles
 export limits, plottable_array
 export mathlabel, texlabel
+export slice_plot
 
 
 # Version info

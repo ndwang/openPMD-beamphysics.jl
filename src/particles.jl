@@ -160,7 +160,7 @@ function max(pg::ParticleGroup, key::String)
 end
 
 function ptp(pg::ParticleGroup, key::String)
-    return maximum(getproperty(pg, Symbol(key))) - minimum(getproperty(pg, Symbol(key)))
+    return ptp(getproperty(pg, Symbol(key)))
 end
 
 function avg(pg::ParticleGroup, key::String)
