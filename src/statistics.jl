@@ -41,7 +41,7 @@ This is a simple calculation. Makes no assumptions about units.
 - gamma =  <p, p>/emit
 - emit = det(sigma_mat)
 """
-function twiss_calc(sigma_mat2::AbstractMatrix)
+function twiss_calc(sigma_mat2::AbstractMatrix{T}) where T
     @assert size(sigma_mat2) == (2, 2) "Bad shape: $(size(sigma_mat2)). This should be (2,2)"
     
     twiss = Dict{String,T}()
@@ -252,19 +252,13 @@ function twiss_dispersion(particle_group; plane="x", fraction=1, p0c=nothing)
     return out
 end
 
-#=
 """
-    A_mat_calc(beta, alpha, inverse=false)
+    A_mat_calc(beta, alpha)
 
 Returns the 1D normal form matrix from twiss parameters beta and alpha
 
     A =   sqrt(beta)         0
          -alpha/sqrt(beta)   1/sqrt(beta)
-
-If inverse, the inverse will be returned:
-
-    A^-1 =  1/sqrt(beta)     0
-            alpha/sqrt(beta) sqrt(beta)
 
 This corresponds to the linear normal form decomposition:
 
@@ -276,24 +270,34 @@ with a clockwise rotation matrix:
                  -sin(theta) cos(theta)
 
 In the Bmad manual, G_q (Bmad) = A (here) in the Linear Optics chapter.
+"""
+function A_mat_calc(beta, alpha)
+    a11 = sqrt(beta)
+    a22 = 1 / a11
+    a21 = -alpha / a11
+    return [a11 0; a21 a22]
+end
+
+"""
+    A_inverse_mat_calc(beta, alpha)
+
+Returns the inverse of the 1D normal form matrix from twiss parameters beta and alpha
+
+    A^-1 =  1/sqrt(beta)     0
+            alpha/sqrt(beta) sqrt(beta)
 
 A^-1 can be used to form normalized coordinates:
     x_bar, px_bar   = A^-1 . (x, px)
 """
-function A_mat_calc(beta, alpha, inverse=false)
+function A_inverse_mat_calc(beta, alpha)
     a11 = sqrt(beta)
     a22 = 1 / a11
     a21 = -alpha / a11
-
-    if inverse
-        return [a22 0; -a21 a11]
-    else
-        return [a11 0; a21 a22]
-    end
+    return [a22 0; -a21 a11]
 end
 
 """
-    amplitude_calc(x, p, beta=1, alpha=0)
+    amplitude_calc(x, p; beta=1, alpha=0)
 
 Simple amplitude calculation of position and momentum coordinates
 relative to twiss beta and alpha.
@@ -304,12 +308,12 @@ J = (gamma x^2 + 2 alpha x p + beta p^2)/2
 
 where gamma = (1+alpha^2)/beta
 """
-function amplitude_calc(x, p, beta=1, alpha=0)
+function amplitude_calc(x, p; beta=1, alpha=0)
     return (1 + alpha^2) / beta / 2 .* x.^2 .+ alpha .* x .* p .+ beta / 2 .* p.^2
 end
 
 """
-    particle_amplitude(particle_group, plane="x", twiss=nothing, mass_normalize=true)
+    particle_amplitude(particle_group; plane="x", twiss=nothing, mass_normalize=true)
 
 Returns the normalized amplitude array from a ParticleGroup for a given plane.
 
@@ -322,7 +326,7 @@ If mass_normalize (default=true), the momentum will be divided by the mass, so t
 
 See: normalized_particle_coordinate
 """
-function particle_amplitude(particle_group, plane="x", twiss=nothing, mass_normalize=true)
+function particle_amplitude(particle_group; plane="x", twiss=nothing, mass_normalize=true)
     x = particle_group[plane]
     key2 = "p" * plane
 
@@ -335,17 +339,17 @@ function particle_amplitude(particle_group, plane="x", twiss=nothing, mass_norma
 
     # User could supply twiss
     if isnothing(twiss)
-        sigma_mat2 = cov(x, p, weights=particle_group.weight)
+        sigma_mat2 = StatsBase.cov(hcat(x, p), weights(particle_group.weight), 1)
         twiss = twiss_calc(sigma_mat2)
     end
 
-    J = amplitude_calc(x, p, beta=twiss["beta"], alpha=twiss["alpha"])
+    J = amplitude_calc(x, p; beta=twiss["beta"], alpha=twiss["alpha"])
 
     return J
 end
 
 """
-    normalized_particle_coordinate(particle_group, key, twiss=nothing, mass_normalize=true)
+    normalized_particle_coordinate(particle_group, key; twiss=nothing, mass_normalize=true)
 
 Returns a single normalized coordinate array from a ParticleGroup
 
@@ -375,7 +379,7 @@ and:
 
 Note that the center may need to be subtracted in this case.
 """
-function normalized_particle_coordinate(particle_group, key, twiss=nothing, mass_normalize=true)
+function normalized_particle_coordinate(particle_group, key; twiss=nothing, mass_normalize=true)
     # Parse key for position or momentum coordinate
     if startswith(key, "p")
         momentum = true
@@ -398,11 +402,11 @@ function normalized_particle_coordinate(particle_group, key, twiss=nothing, mass
 
     # User could supply twiss
     if isnothing(twiss)
-        sigma_mat2 = cov(x, p, weights=particle_group.weight)
+        sigma_mat2 = StatsBase.cov(hcat(x, p), weights(particle_group.weight), 1)
         twiss = twiss_calc(sigma_mat2)
     end
 
-    A_inv = A_mat_calc(twiss["beta"], twiss["alpha"], inverse=true)
+    A_inv = A_inverse_mat_calc(twiss["beta"], twiss["alpha"])
 
     if momentum
         return A_inv[2, 1] .* x .+ A_inv[2, 2] .* p
@@ -412,69 +416,86 @@ function normalized_particle_coordinate(particle_group, key, twiss=nothing, mass
 end
 
 """
-    slice_statistics(particle_group, keys=["mean_z"], n_slice=40, slice_key=nothing)
+    slice_statistics(particle_group; keys=["mean_z"], n_slice=40, slice_key=nothing)
 
-Slices a particle group into n slices and returns statistics from each slice defined in keys.
+Slices a particle group into n slices and returns statistics from each slice.
 
-These statistics should be scalar floats for now.
+Parameters:
+- `particle_group`: The particle group to analyze
+- `keys`: Vector of statistic keys to calculate (default: ["mean_z"])
+- `n_slice`: Number of slices to create (default: 40)
+- `slice_key`: Key to use for slicing (default: "z" for t-coordinates, "t" otherwise)
 
-Any key can be used to slice on.
+Returns:
+- `SliceStatistics`: A struct containing the slice centers and calculated statistics
+
+The function supports both regular statistics and Twiss parameters. For Twiss parameters,
+use keys like "twiss_x", "twiss_y", or "twiss_xy" to calculate parameters for specific planes.
 """
-function slice_statistics(particle_group, keys=["mean_z"], n_slice=40, slice_key=nothing)
+function slice_statistics(particle_group; keys=["mean_z"], n_slice=40, slice_key=nothing)
+    # Determine slice key
     if isnothing(slice_key)
-        if particle_group.in_t_coordinates
+        if in_t_coordinates(particle_group)
             slice_key = "z"
         else
             slice_key = "t"
         end
     end
+    # Split particles into slices
+    slices = split_particles(particle_group; n_chunks=n_slice, key=slice_key)
 
-    sdat = Dict{String,Vector{Float64}}()
-    twiss_planes = Set{String}()
-    twiss = Dict{String,Float64}()
+    # Calculate slice centers
+    slice_centers = zeros(n_slice)
+    for (i, slice) in enumerate(slices)
+        slice_centers[i] = mean(slice[slice_key])
+    end
 
-    normal_keys = Set{String}()
+    # Initialize statistics storage
+    statistics = Dict{String,Vector{Float64}}()
+    
+    # Process regular statistics
+    regular_keys = filter(k -> !startswith(k, "twiss"), keys)
+    for key in regular_keys
+        statistics[key] = zeros(n_slice)
+        for (i, slice) in enumerate(slices)
+            statistics[key][i] = slice[key]
+        end
+    end
 
-    for k in keys
-        sdat[k] = zeros(n_slice)
-        if startswith(k, "twiss")
-            if k == "twiss" || k == "twiss_xy"
-                push!(twiss_planes, "x")
-                push!(twiss_planes, "y")
+    # Process Twiss parameters
+    twiss_keys = filter(k -> startswith(k, "twiss"), keys)
+    if !isempty(twiss_keys)
+        # Determine which planes to calculate
+        planes = Set{String}()
+        for key in twiss_keys
+            if key == "twiss" || key == "twiss_xy"
+                push!(planes, "x", "y")
             else
-                plane = k[end]
-                @assert plane in ("x", "y")
-                push!(twiss_planes, plane)
+                plane = string(key[end])
+                @assert plane in ("x", "y") "Invalid Twiss plane: $plane"
+                push!(planes, plane)
             end
-        else
-            push!(normal_keys, k)
-        end
-    end
-
-    twiss_plane = join(twiss_planes)  # flatten
-    @assert twiss_plane in ("x", "y", "xy", "yx", "")
-
-    for (i, pg) in enumerate(particle_group.split(n_slice, key=slice_key))
-        for k in normal_keys
-            sdat[k][i] = pg[k]
         end
 
-        # Handle twiss
-        if !isempty(twiss_plane)
-            twiss = pg.twiss(plane=twiss_plane)
-            for (k, v) in twiss
-                full_key = "twiss_" * k
-                if !haskey(sdat, full_key)
-                    sdat[full_key] = zeros(n_slice)
+        # Calculate Twiss parameters for each slice
+        for plane in planes
+            for (i, slice) in enumerate(slices)
+                twiss = twiss_dispersion(slice; plane=plane)
+                for (k, v) in twiss
+                    key = "twiss_$(k)"
+                    if !haskey(statistics, key)
+                        statistics[key] = zeros(n_slice)
+                    end
+                    statistics[key][i] = v
                 end
-                sdat[full_key][i] = v
             end
         end
     end
 
-    return sdat
+    return slice_centers, statistics
 end
 
+#=
 """
     resample_particles(particle_group, n=0, equal_weights=false)
 
@@ -579,5 +600,4 @@ function bunching(z::AbstractArray, wavelength::Real, weight=nothing)
     k = 2π / wavelength
     f = exp.(im .* k .* z)
     return sum(weight .* f) / sum(weight)
-end
-=#
+end =#

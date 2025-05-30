@@ -192,7 +192,7 @@ end
 # TODO: multidimensional histograms
 # function histogramdd(pg::ParticleGroup, keys::String...; bins=10, range=nothing)
 
-function twiss(pg::ParticleGroup, plane="x", fraction=1, p0c=nothing)
+function twiss(pg::ParticleGroup; plane="x", fraction=1, p0c=nothing)
     d = Dict{String,Float64}()
     for p in plane
         merge!(d, twiss_dispersion(pg, plane=string(p), fraction=fraction, p0c=p0c))
