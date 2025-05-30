@@ -26,6 +26,8 @@ export nice_scale_prefix, nice_array, pg_units
 export load_field_attrs
 export component_data, is_constant_component, constant_component_value
 export norm_emit_calc, twiss_calc, twiss_dispersion
+export A_mat_calc, A_inverse_mat_calc, amplitude_calc, particle_amplitude, normalized_particle_coordinate
+export slice_statistics
 export ParticleGroup, single_particle, twiss, in_z_coordinates, in_t_coordinates, average_current
 export drift!, drift_to_t!, drift_to_z!, split_particles
 export limits, plottable_array
