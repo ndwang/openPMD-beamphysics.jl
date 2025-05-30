@@ -33,7 +33,7 @@ export ParticleGroup, single_particle, twiss, in_z_coordinates, in_t_coordinates
 export drift!, drift_to_t!, drift_to_z!, split_particles
 export limits, plottable_array
 export mathlabel, texlabel
-export slice_plot
+export slice_plot, density_plot, marginal_plot, density_and_slice_plot
 
 
 # Version info
