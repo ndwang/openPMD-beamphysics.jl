@@ -84,7 +84,7 @@ const COMPONENT_ALIAS = Dict(v => k for (k, v) in COMPONENT_FROM_ALIAS)
 
 Uses the basePath and particlesPath to find where openPMD particles should be.
 """
-function particle_paths(h5; key="particlesPath")
+function particle_paths(h5::HDF5.File; key="particlesPath")
     basePath = String(attrs(h5)["basePath"])
     particlesPath = String(attrs(h5)[key])
 
@@ -155,7 +155,7 @@ Parameters:
 """
 function component_data(h5; slice=:, unit_factor=1, axis_labels=nothing)
     # Look for unitSI factor
-    factor = haskey(attrs(h5), "unitSI") ? attrs(h5)["unitSI"] : 1.0
+    factor = haskey(attrs(h5), "unitSI") ? attrs(h5)["unitSI"] : 1
 
     # Additional conversion factor
     if unit_factor != 1
@@ -178,24 +178,30 @@ function component_data(h5; slice=:, unit_factor=1, axis_labels=nothing)
         if all(label in cartesian_std for label in axis_labels)
             # Cartesian coordinates
             perm_indices = [findfirst(isequal(label), cartesian_std) for label in axis_labels]
-            dat = Array(h5)[slice]
+            dat = read(h5)[slice]
             dat = permutedims(dat, perm_indices)
         elseif all(label in cylindrical_std for label in axis_labels)
             # Cylindrical coordinates
             perm_indices = [findfirst(isequal(label), cylindrical_std) for label in axis_labels]
-            dat = Array(h5)[slice]
+            dat = read(h5)[slice]
             dat = permutedims(dat, perm_indices)
         else
             # C-order
-            dat = Array(h5)[slice]
+            dat = read(h5)[slice]
         end
     else
         # 1-D array
-        dat = Array(h5)[slice]
+        dat = read(h5)[slice]
     end
 
     if factor != 1
-        dat .*= factor
+        # Convert factor to the same type as the data to preserve precision
+        if isa(dat, AbstractArray)
+            factor_converted = convert(eltype(dat), factor)
+            dat .*= factor_converted
+        else
+            dat *= factor
+        end
     end
 
     return dat
@@ -223,6 +229,7 @@ end
 
 Main routine to return particle arrays in fixed units.
 All units are SI except momentum, which will be in eV/c.
+The original data type from the HDF5 file is preserved.
 """
 function particle_array(h5, component; slice=:, include_offset=true)
     # Handle aliases
@@ -233,7 +240,7 @@ function particle_array(h5, component; slice=:, include_offset=true)
     if component in ["momentum/x", "momentum/y", "momentum/z"]
         unit_factor = APC.C_LIGHT / APC.E_CHARGE  # convert J/(m/s) to eV/c
     else
-        unit_factor = 1.0
+        unit_factor = 1
     end
 
     # Get data

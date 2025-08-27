@@ -12,7 +12,7 @@ Represents a collection of particles with their properties and methods for analy
 - `species::String`: particle species name
 - `id::Vector{Int}`: optional particle IDs
 """
-struct ParticleGroup{T<:Real}
+struct ParticleGroup{T<:Real, I<:Integer}
     x::Vector{T}
     px::Vector{T}
     y::Vector{T}
@@ -20,7 +20,7 @@ struct ParticleGroup{T<:Real}
     z::Vector{T}
     pz::Vector{T}
     t::Vector{T}
-    status::Vector{Int}
+    status::Vector{I}
     weight::Vector{T}
     species::Species
     id::Vector{Int}
@@ -29,9 +29,9 @@ end
 # Constructor with optional id
 function ParticleGroup(
     x::Vector{T}, px::Vector{T}, y::Vector{T}, py::Vector{T},
-    z::Vector{T}, pz::Vector{T}, t::Vector{T}, status::Vector{Int},
+    z::Vector{T}, pz::Vector{T}, t::Vector{T}, status::Vector{I},
     weight::Vector{T}, species::Species
-) where T<:Real
+) where {T<:Real, I<:Integer}
     n = length(x)
     id = collect(Int,1:n)
     return ParticleGroup(x, px, y, py, z, pz, t, status, weight, species, id)
@@ -362,17 +362,26 @@ function join_particle_groups(pgs::ParticleGroup...)
 end
 
 """
-    ParticleGroup(h5)
+    ParticleGroup(h5::HDF5.Group)
 
 Load particles into a ParticleGroup from an HDF5 file in openPMD format.
 
 # Arguments
-- `h5`: HDF5 handle or group containing particle data
+- `h5::HDF5.Group`: HDF5 group containing particle data
 
 # Returns
 - `ParticleGroup`: Particle group containing the loaded data
 """
-function ParticleGroup(h5)
+function ParticleGroup(h5::HDF5.Group)
+
+    if !haskey(h5, "position")
+        species = keys(h5)
+        if length(species) != 1
+            error("multiple species in particle paths: $(species)")
+        end
+        h5 = h5[species[1]]
+    end
+
     # Get attributes
     attributes = attrs(h5)
 
@@ -404,9 +413,6 @@ function ParticleGroup(h5)
     # Get particle weights
     if haskey(h5, "weight")
         weight = particle_array(h5, "weight")
-        if length(weight) == 1
-            weight = fill(weight[1], n_particle)
-        end
     else
         weight = fill(total_charge / n_particle, n_particle)
     end
@@ -427,7 +433,11 @@ Load particles into a ParticleGroup from an HDF5 file in openPMD format.
 """
 function ParticleGroup(file::String)
     h5 = h5open(file, "r")
-    pg = ParticleGroup(h5)
+
+    pp = particle_paths(h5)
+    @assert length(pp) == 1 "Number of particles paths in $h5 is $(length(pp))."
+
+    pg = ParticleGroup(h5[pp[1]])
     close(h5)
     return pg
 end
