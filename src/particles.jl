@@ -224,7 +224,15 @@ function average_current(pg::ParticleGroup)
 end
 
 # Drift methods
-function drift!(pg::ParticleGroup, delta_t::Real)
+function drift!(pg::ParticleGroup, delta_t::Number)
+    pg.x .+= pg.beta_x .* APC.C_LIGHT .* delta_t
+    pg.y .+= pg.beta_y .* APC.C_LIGHT .* delta_t
+    pg.z .+= pg.beta_z .* APC.C_LIGHT .* delta_t
+    pg.t .+= delta_t
+end
+
+function drift!(pg::ParticleGroup, delta_t::AbstractVector)
+    @assert length(delta_t) == length(pg.x) "delta_t length must match number of particles"
     pg.x .+= pg.beta_x .* APC.C_LIGHT .* delta_t
     pg.y .+= pg.beta_y .* APC.C_LIGHT .* delta_t
     pg.z .+= pg.beta_z .* APC.C_LIGHT .* delta_t
