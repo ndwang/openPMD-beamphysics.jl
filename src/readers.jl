@@ -238,7 +238,7 @@ function particle_array(h5, component; slice=:, include_offset=true)
     end
 
     if component in ["momentum/x", "momentum/y", "momentum/z"]
-        unit_factor = APC.C_LIGHT / APC.E_CHARGE  # convert J/(m/s) to eV/c
+        unit_factor = C_LIGHT / E_CHARGE  # convert J/(m/s) to eV/c
     else
         unit_factor = 1
     end

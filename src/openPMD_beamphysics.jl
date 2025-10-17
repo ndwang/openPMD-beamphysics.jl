@@ -6,10 +6,9 @@ using Plots
 using StatsBase
 using LinearAlgebra
 using Distributions
-using AtomicAndPhysicalConstants
+using APClite
 using Unitful
 using Unitful.DefaultSymbols
-@APCdef
 
 # Include all source files in dependency order
 include("utils.jl")
@@ -34,9 +33,5 @@ export drift!, drift_to_t!, drift_to_z!, split_particles
 export limits, plottable_array
 export mathlabel, texlabel
 export slice_plot, density_plot, marginal_plot, density_and_slice_plot
-
-
-# Version info
-const VERSION = v"0.1.0"
 
 end # module openPMD_beamphysics

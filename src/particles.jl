@@ -218,29 +218,29 @@ function average_current(pg::ParticleGroup)
     dt = ptp(pg, "t")
     if dt == 0
         # must be in t coordinates. Calc with
-        dt = ptp(pg, "z") / (avg(pg, "beta_z") * APC.C_LIGHT)
+        dt = ptp(pg, "z") / (avg(pg, "beta_z") * C_LIGHT)
     end
     return pg.charge / dt
 end
 
 # Drift methods
 function drift!(pg::ParticleGroup, delta_t::Number)
-    pg.x .+= pg.beta_x .* APC.C_LIGHT .* delta_t
-    pg.y .+= pg.beta_y .* APC.C_LIGHT .* delta_t
-    pg.z .+= pg.beta_z .* APC.C_LIGHT .* delta_t
+    pg.x .+= pg.beta_x .* C_LIGHT .* delta_t
+    pg.y .+= pg.beta_y .* C_LIGHT .* delta_t
+    pg.z .+= pg.beta_z .* C_LIGHT .* delta_t
     pg.t .+= delta_t
 end
 
 function drift!(pg::ParticleGroup, delta_t::AbstractVector)
     @assert length(delta_t) == length(pg.x) "delta_t length must match number of particles"
-    pg.x .+= pg.beta_x .* APC.C_LIGHT .* delta_t
-    pg.y .+= pg.beta_y .* APC.C_LIGHT .* delta_t
-    pg.z .+= pg.beta_z .* APC.C_LIGHT .* delta_t
+    pg.x .+= pg.beta_x .* C_LIGHT .* delta_t
+    pg.y .+= pg.beta_y .* C_LIGHT .* delta_t
+    pg.z .+= pg.beta_z .* C_LIGHT .* delta_t
     pg.t .+= delta_t
 end
 
 function drift_to_z!(pg::ParticleGroup, z::Real)
-    dt = (z .- pg.z) ./ (pg.beta_z .* APC.C_LIGHT)
+    dt = (z .- pg.z) ./ (pg.beta_z .* C_LIGHT)
     drift!(pg, dt)
     # Fix z to be exactly this value
     pg.z .= z
@@ -281,7 +281,7 @@ function Base.getindex(pg::ParticleGroup, x)
 
     # Special case for z/c
     if x == "z/c"
-        return pg.z ./ APC.C_LIGHT
+        return pg.z ./ C_LIGHT
     end
 
     if startswith(x, "cov_")

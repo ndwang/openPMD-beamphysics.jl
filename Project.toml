@@ -4,7 +4,7 @@ authors = ["ndwang <ndwang3@gmail.com>"]
 version = "0.1.0"
 
 [deps]
-AtomicAndPhysicalConstants = "5c0d271c-5419-4163-b387-496237733d8b"
+APClite = "12345678-1234-5678-9012-123456789012"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -14,7 +14,6 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [compat]
-AtomicAndPhysicalConstants = "0.6.5"
 Distributions = "0.25.119"
 HDF5 = "0.17.2"
 LinearAlgebra = "1.11.0"
