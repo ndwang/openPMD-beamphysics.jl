@@ -1,13 +1,8 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.11.5"
+julia_version = "1.11.7"
 manifest_format = "2.0"
-project_hash = "02dea8f4aacb103cee79c9668b6545698b97f238"
-
-[[deps.APClite]]
-path = "../APClite"
-uuid = "12345678-1234-5678-9012-123456789012"
-version = "0.1.0"
+project_hash = "004aedf5d84d1d6d9f76d53698bf05e9c7b614a5"
 
 [[deps.AliasTables]]
 deps = ["PtrArrays", "Random"]
@@ -22,6 +17,11 @@ version = "1.1.2"
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 version = "1.11.0"
+
+[[deps.AtomicAndPhysicalConstants]]
+path = "C:\\Users\\wdong\\.julia\\AtomicAndPhysicalConstants.jl"
+uuid = "5c0d271c-5419-4163-b387-496237733d8b"
+version = "0.8.2"
 
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"

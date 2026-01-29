@@ -213,7 +213,7 @@ Returns the conversion factor to convert from the given unit to SI units.
 """
 function SI_conversion_factor(unit::Unitful.Units)
     # 1. Create a quantity with magnitude 1 of the given unit
-    quantity_one = 1.0 * unit_val
+    quantity_one = 1.0 * unit
     # 2. Convert to preferred SI units (Unitful's default preferred system is SI)
     si_quantity = upreferred(quantity_one)
     # 3. Strip the units to get the numerical factor

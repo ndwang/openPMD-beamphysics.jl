@@ -2,6 +2,12 @@
 Utilities for writing particle and field data to HDF5 files in openPMD format.
 """
 
+# String formatting for HDF5 attributes (identity for now)
+fstr(s::String) = s
+
+# Encode field attributes for HDF5 writing (identity for now)
+encode_attrs(attrs::Dict) = attrs
+
 """
     pmd_init(h5, basePath="/data/%T/", particlesPath="./")
 
@@ -61,7 +67,7 @@ function write_pmd_bunch(h5, data; name=nothing)
     # Required Datasets
     for key in ["x", "px", "y", "py", "z", "pz", "t", "status", "weight"]
         # Get full name, write data
-        g2_name = component_from_alias[key]
+        g2_name = COMPONENT_FROM_ALIAS[key]
 
         # Units
         u = pg_units(key)

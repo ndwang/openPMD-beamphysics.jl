@@ -9,7 +9,7 @@ Represents a collection of particles with their properties and methods for analy
 - `t::Vector{T}`: time in [s]
 - `status::Vector{Int}`: particle status (1 for alive, 0 for dead)
 - `weight::Vector{T}`: macro-particle charge in [C]
-- `species::String`: particle species name
+- `species::Species`: particle species
 - `id::Vector{Int}`: optional particle IDs
 """
 struct ParticleGroup{T<:Real, I<:Integer}
@@ -124,19 +124,19 @@ function Base.getproperty(pg::ParticleGroup, s::Symbol)
     elseif s == :py_bar
         return normalized_particle_coordinate(pg, "py")
     elseif s == :Jx
-        return hypot(pg.x_bar, pg.px_bar)
+        return hypot.(pg.x_bar, pg.px_bar)
     elseif s == :Jy
-        return hypot(pg.y_bar, pg.py_bar)
+        return hypot.(pg.y_bar, pg.py_bar)
     end
     return getfield(pg, s)
 end
 
-function setproperty!(pg::ParticleGroup, s::Symbol, val)
-    if key == :charge
+function Base.setproperty!(pg::ParticleGroup, s::Symbol, val)
+    if s == :charge
         @assert val > 0 "charge must be >0. This is used to weight the particles."
         pg.weight .*= val / pg.charge
     else
-        setfield!(pg, s, val)
+        error("Cannot set field '$s' on immutable ParticleGroup")
     end
 end
 
@@ -267,9 +267,10 @@ end
 
 Returns a property or statistical quantity that can be computed:
 
-- `P['x']` returns the x array
-- `P['sigmx_x']` returns the std(x) scalar
-- `P['norm_emit_x']` returns the norm_emit_x scalar
+- `P["x"]` returns the x array
+- `P["sigma_x"]` returns the std(x) scalar
+- `P["norm_emit_x"]` returns the norm_emit_x scalar
+- `P["cov_x__px"]` returns the covariance of x and px
 
 Parts can also be given. Example: `P[1:10]` returns a new ParticleGroup with the first 10 elements.
 """
@@ -284,7 +285,7 @@ function Base.getindex(pg::ParticleGroup, x)
     end
 
     if startswith(x, "cov_")
-        subkeys = split(x[5:end], "_")
+        subkeys = split(x[5:end], "__")
         @assert length(subkeys) == 2 "Need 2 properties in covariance request: $x"
         return cov(pg, subkeys...)[1, 2]
     elseif startswith(x, "delta_")
@@ -309,6 +310,9 @@ function Base.:+(pg1::ParticleGroup, pg2::ParticleGroup)
 end
 
 function Base.:(==)(pg1::ParticleGroup, pg2::ParticleGroup)
+    if nameof(pg1.species) != nameof(pg2.species)
+        return false
+    end
     for key in ["x", "px", "y", "py", "z", "pz", "t", "status", "weight", "id"]
         if !all(isapprox.(getproperty(pg1, Symbol(key)), getproperty(pg2, Symbol(key))))
             return false
@@ -327,7 +331,7 @@ function split_particles(pg::ParticleGroup; n_chunks=100, key="z")
     plist = ParticleGroup[]
     for chunk in Iterators.partition(iz, ceil(Int, length(iz)/n_chunks))
         # Create new particle group with subset of particles
-        new_pg = ParticleGroup{eltype(pg.x)}(
+        new_pg = ParticleGroup(
             pg.x[chunk], pg.px[chunk], pg.y[chunk], pg.py[chunk],
             pg.z[chunk], pg.pz[chunk], pg.t[chunk], pg.status[chunk],
             pg.weight[chunk], pg.species, pg.id[chunk]
@@ -339,7 +343,7 @@ function split_particles(pg::ParticleGroup; n_chunks=100, key="z")
 end
 
 function particle_parts(pg::ParticleGroup, x)
-    return ParticleGroup{eltype(pg.x)}(
+    return ParticleGroup(
         pg.x[x], pg.px[x], pg.y[x], pg.py[x],
         pg.z[x], pg.pz[x], pg.t[x], pg.status[x],
         pg.weight[x], pg.species, pg.id[x]
@@ -363,7 +367,7 @@ function join_particle_groups(pgs::ParticleGroup...)
     weight = vcat([pg.weight for pg in pgs]...)
     id = vcat([pg.id for pg in pgs]...)
 
-    return ParticleGroup{eltype(x)}(
+    return ParticleGroup(
         x, px, y, py, z, pz, t, status, weight, species0, id
     )
 end
@@ -439,12 +443,9 @@ Load particles into a ParticleGroup from an HDF5 file in openPMD format.
 - `ParticleGroup`: Particle group containing the loaded data
 """
 function ParticleGroup(file::String)
-    h5 = h5open(file, "r")
-
-    pp = particle_paths(h5)
-    @assert length(pp) == 1 "Number of particles paths in $h5 is $(length(pp))."
-
-    pg = ParticleGroup(h5[pp[1]])
-    close(h5)
-    return pg
+    h5open(file, "r") do h5
+        pp = particle_paths(h5)
+        @assert length(pp) == 1 "Number of particle paths in $file is $(length(pp))."
+        return ParticleGroup(h5[pp[1]])
+    end
 end

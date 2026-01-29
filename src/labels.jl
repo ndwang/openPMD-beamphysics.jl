@@ -68,6 +68,17 @@ const TEXLABEL = Dict{String, String}(
 )
 
 """
+    parse_bunching_str(key::String)
+
+Extract wavelength from a bunching key string, e.g. "bunching_1e-6" → 1e-6.
+"""
+function parse_bunching_str(key::String)
+    m = match(r"bunching_(.+)", key)
+    isnothing(m) && error("Cannot parse bunching key: $key")
+    return parse(Float64, m[1])
+end
+
+"""
     texlabel(key::String)
 
 Returns a tex label from a proper attribute name.
@@ -87,7 +98,7 @@ texlabel("cov_x__px")  # returns: "\\left<x, p_x\\right>"
 See matplotlib documentation for more information on mathtext:
     https://matplotlib.org/stable/tutorials/text/mathtext.html
 """
-function texlabel(key::String)
+function texlabel(key::AbstractString)
     # Basic cases
     if haskey(TEXLABEL, key)
         return TEXLABEL[key]
@@ -110,6 +121,8 @@ function texlabel(key::String)
                 return "$tex0 - \\left<$tex0\\right>"
             elseif pre == "mean"
                 return "\\left<$tex0\\right>"
+            elseif pre == "ptp"
+                return "\\Delta $tex0"
             end
         end
     end
