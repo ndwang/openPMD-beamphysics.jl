@@ -51,160 +51,160 @@ end
 # Base methods
 Base.length(pg::ParticleGroup) = length(pg.x)
 
-function norm_emit_x(pg::ParticleGroup)
-    return norm_emit_calc(pg, ["x"])
+# ---- Standalone derived-property functions ----
+
+nalive(pg::ParticleGroup) = count(pg.status .== 1)
+ndead(pg::ParticleGroup) = length(pg) - nalive(pg)
+mass(pg::ParticleGroup) = massof(pg.species)
+species_charge(pg::ParticleGroup) = chargeof(pg.species)
+charge(pg::ParticleGroup) = sum(pg.weight)
+
+momentum(pg::ParticleGroup) = sqrt.(pg.px.^2 .+ pg.py.^2 .+ pg.pz.^2)
+energy(pg::ParticleGroup) = sqrt.(pg.px.^2 .+ pg.py.^2 .+ pg.pz.^2 .+ mass(pg)^2)
+kinetic_energy(pg::ParticleGroup) = energy(pg) .- mass(pg)
+
+xp(pg::ParticleGroup) = pg.px ./ pg.pz
+yp(pg::ParticleGroup) = pg.py ./ pg.pz
+
+r(pg::ParticleGroup) = hypot.(pg.x, pg.y)
+theta(pg::ParticleGroup) = atan.(pg.y, pg.x)
+
+function pr(pg::ParticleGroup)
+    th = theta(pg)
+    return pg.px .* cos.(th) .+ pg.py .* sin.(th)
 end
 
-function norm_emit_y(pg::ParticleGroup)
-    return norm_emit_calc(pg, ["y"])
+function ptheta(pg::ParticleGroup)
+    th = theta(pg)
+    return -pg.px .* sin.(th) .+ pg.py .* cos.(th)
 end
 
-function norm_emit_4d(pg::ParticleGroup)
-    return norm_emit_calc(pg, ["x", "y"])
+Lz(pg::ParticleGroup) = pg.x .* pg.py .- pg.y .* pg.px
+
+gamma(pg::ParticleGroup) = energy(pg) ./ mass(pg)
+beta(pg::ParticleGroup) = momentum(pg) ./ energy(pg)
+beta_x(pg::ParticleGroup) = pg.px ./ energy(pg)
+beta_y(pg::ParticleGroup) = pg.py ./ energy(pg)
+beta_z(pg::ParticleGroup) = pg.pz ./ energy(pg)
+
+# These call normalized_particle_coordinate (defined in statistics.jl, resolved at call time)
+x_bar(pg::ParticleGroup) = normalized_particle_coordinate(pg, "x")
+px_bar(pg::ParticleGroup) = normalized_particle_coordinate(pg, "px")
+y_bar(pg::ParticleGroup) = normalized_particle_coordinate(pg, "y")
+py_bar(pg::ParticleGroup) = normalized_particle_coordinate(pg, "py")
+
+Jx(pg::ParticleGroup) = hypot.(x_bar(pg), px_bar(pg))
+Jy(pg::ParticleGroup) = hypot.(y_bar(pg), py_bar(pg))
+
+# ---- DERIVED_PROPERTIES dict for getindex resolution ----
+
+const DERIVED_PROPERTIES = Dict{String, Any}(
+    "n_particle"     => pg -> length(pg),
+    "n_alive"        => pg -> nalive(pg),
+    "n_dead"         => pg -> ndead(pg),
+    "mass"           => pg -> mass(pg),
+    "species_charge" => pg -> species_charge(pg),
+    "charge"         => pg -> charge(pg),
+    "p"              => pg -> momentum(pg),
+    "energy"         => pg -> energy(pg),
+    "kinetic_energy" => pg -> kinetic_energy(pg),
+    "xp"             => pg -> xp(pg),
+    "yp"             => pg -> yp(pg),
+    "r"              => pg -> r(pg),
+    "theta"          => pg -> theta(pg),
+    "pr"             => pg -> pr(pg),
+    "ptheta"         => pg -> ptheta(pg),
+    "Lz"             => pg -> Lz(pg),
+    "gamma"          => pg -> gamma(pg),
+    "beta"           => pg -> beta(pg),
+    "beta_x"         => pg -> beta_x(pg),
+    "beta_y"         => pg -> beta_y(pg),
+    "beta_z"         => pg -> beta_z(pg),
+    "norm_emit_x"    => pg -> norm_emit_x(pg),
+    "norm_emit_y"    => pg -> norm_emit_y(pg),
+    "norm_emit_4d"   => pg -> norm_emit_4d(pg),
+    "x_bar"          => pg -> x_bar(pg),
+    "px_bar"         => pg -> px_bar(pg),
+    "y_bar"          => pg -> y_bar(pg),
+    "py_bar"         => pg -> py_bar(pg),
+    "Jx"             => pg -> Jx(pg),
+    "Jy"             => pg -> Jy(pg),
+    "average_current"=> pg -> average_current(pg),
+)
+
+# ---- set_charge! ----
+
+function set_charge!(pg::ParticleGroup, val)
+    @assert val > 0 "charge must be >0. This is used to weight the particles."
+    pg.weight .*= val / charge(pg)
 end
 
-# Derived properties
-function Base.getproperty(pg::ParticleGroup, s::Symbol)
-    if s == :n_particle
-        return length(pg)
-    elseif s == :n_alive
-        return count(pg.status .== 1)
-    elseif s == :n_dead
-        return pg.n_particle - pg.n_alive
-    elseif s == :mass
-        return massof(pg.species)
-    elseif s == :species_charge
-        return chargeof(pg.species)
-    elseif s == :charge
-        return sum(pg.weight)
-    elseif s == :p
-        return sqrt.(pg.px.^2 .+ pg.py.^2 .+ pg.pz.^2)
-    elseif s == :energy
-        return sqrt.(pg.px.^2 .+ pg.py.^2 .+ pg.pz.^2 .+ pg.mass^2)
-    elseif s == :kinetic_energy
-        return pg.energy .- pg.mass
-    elseif s == :xp
-        return pg.px ./ pg.pz
-    elseif s == :yp
-        return pg.py ./ pg.pz
-    elseif s == :r
-        return hypot.(pg.x, pg.y)
-    elseif s == :theta
-        return atan.(pg.y, pg.x)
-    elseif s == :pr
-        theta = pg.theta
-        return pg.px .* cos.(theta) .+ pg.py .* sin.(theta)
-    elseif s == :ptheta
-        theta = pg.theta
-        return -pg.px .* sin.(theta) .+ pg.py .* cos.(theta)
-    elseif s == :Lz
-        return pg.x .* pg.py .- pg.y .* pg.px
-    elseif s == :gamma
-        return pg.energy ./ pg.mass
-    elseif s == :beta
-        return pg.p ./ pg.energy
-    elseif s == :beta_x
-        return pg.px ./ pg.energy
-    elseif s == :beta_y
-        return pg.py ./ pg.energy
-    elseif s == :beta_z
-        return pg.pz ./ pg.energy
-    elseif s == :norm_emit_x
-        return norm_emit_x(pg)
-    elseif s == :norm_emit_y
-        return norm_emit_y(pg)
-    elseif s == :norm_emit_4d
-        return norm_emit_4d(pg)
-    elseif s == :x_bar
-        return normalized_particle_coordinate(pg, "x")
-    elseif s == :px_bar
-        return normalized_particle_coordinate(pg, "px")
-    elseif s == :y_bar
-        return normalized_particle_coordinate(pg, "y")
-    elseif s == :py_bar
-        return normalized_particle_coordinate(pg, "py")
-    elseif s == :Jx
-        return hypot.(pg.x_bar, pg.px_bar)
-    elseif s == :Jy
-        return hypot.(pg.y_bar, pg.py_bar)
-    end
-    return getfield(pg, s)
-end
-
-function Base.setproperty!(pg::ParticleGroup, s::Symbol, val)
-    if s == :charge
-        @assert val > 0 "charge must be >0. This is used to weight the particles."
-        pg.weight .*= val / pg.charge
-    else
-        error("Cannot set field '$s' on immutable ParticleGroup")
-    end
-end
+# ---- Display ----
 
 function Base.show(io::IO, pg::ParticleGroup)
-    print(io, "ParticleGroup with $(length(pg)) particles with total charge $(pg.charge) C")
+    print(io, "ParticleGroup with $(length(pg)) particles (charge = $(charge(pg)) C)")
 end
 
 function Base.show(io::IO, ::MIME"text/plain", pg::ParticleGroup)
-    memloc = string(objectid(pg), base=16)
-    print(io, "<ParticleGroup with $(length(pg)) particles at 0x$memloc>")
+    print(io, "ParticleGroup with $(length(pg)) particles (charge = $(charge(pg)) C)")
 end
 
-# Statistical methods
-function min(pg::ParticleGroup, key::String)
-    return minimum(getproperty(pg, Symbol(key)))
+# ---- Statistics: proper Base/Statistics extensions ----
+
+function Base.minimum(pg::ParticleGroup, key::AbstractString)
+    return minimum(_resolve_key(pg, key))
 end
 
-function max(pg::ParticleGroup, key::String)
-    return maximum(getproperty(pg, Symbol(key)))
+function Base.maximum(pg::ParticleGroup, key::AbstractString)
+    return maximum(_resolve_key(pg, key))
 end
 
-function ptp(pg::ParticleGroup, key::String)
-    return ptp(getproperty(pg, Symbol(key)))
-end
-
-function avg(pg::ParticleGroup, key::String)
-    dat = getproperty(pg, Symbol(key))
+function Statistics.mean(pg::ParticleGroup, key::AbstractString)
+    dat = _resolve_key(pg, key)
     if length(dat) == 1
         return dat[1]
     end
     return mean(dat, weights(pg.weight))
 end
 
-function delta(pg::ParticleGroup, key::String)
-    return getproperty(pg, Symbol(key)) .- avg(pg, key)
-end
-
-function std(pg::ParticleGroup, key::String)
-    dat = getproperty(pg, Symbol(key))
+function Statistics.std(pg::ParticleGroup, key::AbstractString)
+    dat = _resolve_key(pg, key)
     if length(dat) == 1
-        return 0
+        return zero(eltype(dat))
     end
-    avg_dat = avg(pg, key)
+    avg_dat = Statistics.mean(pg, key)
     return sqrt(mean((dat .- avg_dat).^2, weights(pg.weight)))
 end
 
-function cov(pg::ParticleGroup, keys::AbstractString...)
-    dats = hcat([getproperty(pg, Symbol(key)) for key in keys]...)
+function StatsBase.cov(pg::ParticleGroup, keys::AbstractString...)
+    dats = hcat([_resolve_key(pg, key) for key in keys]...)
     return StatsBase.cov(dats, weights(pg.weight), 1)
 end
 
-# TODO: multidimensional histograms
-# function histogramdd(pg::ParticleGroup, keys::String...; bins=10, range=nothing)
-
-function twiss(pg::ParticleGroup; plane="x", fraction=1, p0c=nothing)
-    d = Dict{String,Float64}()
-    for p in plane
-        merge!(d, twiss_dispersion(pg, plane=string(p), fraction=fraction, p0c=p0c))
-    end
-    return d
+function delta(pg::ParticleGroup, key::AbstractString)
+    return _resolve_key(pg, key) .- Statistics.mean(pg, key)
 end
 
-# TODO: twiss_match
-#= function twiss_match(pg::ParticleGroup, beta=nothing, alpha=nothing, plane="x", p0c=nothing, inplace=false)
-    return matched_particles(pg, beta=beta, alpha=alpha, plane=plane, p0c=p0c, inplace=inplace)
-end =#
+function ptp(pg::ParticleGroup, key::AbstractString)
+    return ptp(_resolve_key(pg, key))
+end
 
-# Coordinate checks
+# Internal helper to resolve a key string to data array (for stat methods)
+function _resolve_key(pg::ParticleGroup, key::AbstractString)
+    # Check struct fields first
+    s = Symbol(key)
+    if s in fieldnames(ParticleGroup)
+        return getfield(pg, s)
+    end
+    # Check derived properties
+    if haskey(DERIVED_PROPERTIES, key)
+        return DERIVED_PROPERTIES[key](pg)
+    end
+    error("Unknown key: $key")
+end
+
+# ---- Coordinate checks ----
+
 function in_z_coordinates(pg::ParticleGroup)
     return length(unique(pg.z)) == 1
 end
@@ -213,54 +213,56 @@ function in_t_coordinates(pg::ParticleGroup)
     return length(unique(pg.t)) == 1
 end
 
+# ---- average_current ----
+
 function average_current(pg::ParticleGroup)
     dt = ptp(pg, "t")
     if dt == 0
-        # must be in t coordinates. Calc with
-        dt = ptp(pg, "z") / (avg(pg, "beta_z") * C_LIGHT)
+        dt = ptp(pg, "z") / (Statistics.mean(pg, "beta_z") * C_LIGHT)
     end
-    return pg.charge / dt
+    return charge(pg) / dt
 end
 
-# Drift methods
+# ---- Drift methods ----
+
 function drift!(pg::ParticleGroup, delta_t::Number)
-    pg.x .+= pg.beta_x .* C_LIGHT .* delta_t
-    pg.y .+= pg.beta_y .* C_LIGHT .* delta_t
-    pg.z .+= pg.beta_z .* C_LIGHT .* delta_t
+    pg.x .+= beta_x(pg) .* C_LIGHT .* delta_t
+    pg.y .+= beta_y(pg) .* C_LIGHT .* delta_t
+    pg.z .+= beta_z(pg) .* C_LIGHT .* delta_t
     pg.t .+= delta_t
 end
 
 function drift!(pg::ParticleGroup, delta_t::AbstractVector)
     @assert length(delta_t) == length(pg.x) "delta_t length must match number of particles"
-    pg.x .+= pg.beta_x .* C_LIGHT .* delta_t
-    pg.y .+= pg.beta_y .* C_LIGHT .* delta_t
-    pg.z .+= pg.beta_z .* C_LIGHT .* delta_t
+    pg.x .+= beta_x(pg) .* C_LIGHT .* delta_t
+    pg.y .+= beta_y(pg) .* C_LIGHT .* delta_t
+    pg.z .+= beta_z(pg) .* C_LIGHT .* delta_t
     pg.t .+= delta_t
 end
 
 function drift_to_z!(pg::ParticleGroup, z::Real)
-    dt = (z .- pg.z) ./ (pg.beta_z .* C_LIGHT)
+    dt = (z .- pg.z) ./ (beta_z(pg) .* C_LIGHT)
     drift!(pg, dt)
-    # Fix z to be exactly this value
     pg.z .= z
 end
 
 function drift_to_z!(pg::ParticleGroup)
-    z = avg(pg, "z")
+    z = Statistics.mean(pg, "z")
     drift_to_z!(pg, z)
 end
 
 function drift_to_t!(pg::ParticleGroup, t::Real)
     dt = t .- pg.t
     drift!(pg, dt)
-    # Fix t to be exactly this value
     pg.t .= t
 end
 
 function drift_to_t!(pg::ParticleGroup)
-    t = avg(pg, "t")
+    t = Statistics.mean(pg, "t")
     drift_to_t!(pg, t)
 end
+
+# ---- getindex ----
 
 """
     Base.getindex(pg::ParticleGroup, x)
@@ -275,7 +277,7 @@ Returns a property or statistical quantity that can be computed:
 Parts can also be given. Example: `P[1:10]` returns a new ParticleGroup with the first 10 elements.
 """
 function Base.getindex(pg::ParticleGroup, x)
-    if !isa(x, String)
+    if !isa(x, AbstractString)
         return particle_parts(pg, x)
     end
 
@@ -287,23 +289,36 @@ function Base.getindex(pg::ParticleGroup, x)
     if startswith(x, "cov_")
         subkeys = split(x[5:end], "__")
         @assert length(subkeys) == 2 "Need 2 properties in covariance request: $x"
-        return cov(pg, subkeys...)[1, 2]
+        return StatsBase.cov(pg, subkeys...)[1, 2]
     elseif startswith(x, "delta_")
         return delta(pg, x[7:end])
     elseif startswith(x, "sigma_")
-        return std(pg, x[7:end])
+        return Statistics.std(pg, x[7:end])
     elseif startswith(x, "mean_")
-        return avg(pg, x[6:end])
+        return Statistics.mean(pg, x[6:end])
     elseif startswith(x, "min_")
-        return min(pg, x[5:end])
+        return Base.minimum(pg, x[5:end])
     elseif startswith(x, "max_")
-        return max(pg, x[5:end])
+        return Base.maximum(pg, x[5:end])
     elseif startswith(x, "ptp_")
         return ptp(pg, x[5:end])
-    else
-        return getproperty(pg, Symbol(x))
     end
+
+    # Check struct fields
+    s = Symbol(x)
+    if s in fieldnames(ParticleGroup)
+        return getfield(pg, s)
+    end
+
+    # Check derived properties
+    if haskey(DERIVED_PROPERTIES, x)
+        return DERIVED_PROPERTIES[x](pg)
+    end
+
+    error("Unknown key: $x")
 end
+
+# ---- Arithmetic and comparison ----
 
 function Base.:+(pg1::ParticleGroup, pg2::ParticleGroup)
     return join_particle_groups(pg1, pg2)
@@ -313,24 +328,39 @@ function Base.:(==)(pg1::ParticleGroup, pg2::ParticleGroup)
     if nameof(pg1.species) != nameof(pg2.species)
         return false
     end
-    for key in ["x", "px", "y", "py", "z", "pz", "t", "status", "weight", "id"]
-        if !all(isapprox.(getproperty(pg1, Symbol(key)), getproperty(pg2, Symbol(key))))
+    for key in (:x, :px, :y, :py, :z, :pz, :t, :status, :weight, :id)
+        if getfield(pg1, key) != getfield(pg2, key)
             return false
         end
     end
     return true
 end
 
-# Helper functions
+function Base.isapprox(pg1::ParticleGroup, pg2::ParticleGroup; kwargs...)
+    if nameof(pg1.species) != nameof(pg2.species)
+        return false
+    end
+    for key in (:x, :px, :y, :py, :z, :pz, :t, :weight)
+        if !isapprox(getfield(pg1, key), getfield(pg2, key); kwargs...)
+            return false
+        end
+    end
+    for key in (:status, :id)
+        if getfield(pg1, key) != getfield(pg2, key)
+            return false
+        end
+    end
+    return true
+end
+
+# ---- Helper functions ----
+
 function split_particles(pg::ParticleGroup; n_chunks=100, key="z")
-    # Sorting
-    zlist = getproperty(pg, Symbol(key))
+    zlist = _resolve_key(pg, key)
     iz = sortperm(zlist)
 
-    # Split particles into chunks
     plist = ParticleGroup[]
     for chunk in Iterators.partition(iz, ceil(Int, length(iz)/n_chunks))
-        # Create new particle group with subset of particles
         new_pg = ParticleGroup(
             pg.x[chunk], pg.px[chunk], pg.y[chunk], pg.py[chunk],
             pg.z[chunk], pg.pz[chunk], pg.t[chunk], pg.status[chunk],
@@ -355,7 +385,6 @@ function join_particle_groups(pgs::ParticleGroup...)
     species0 = species[1]
     @assert all(spe == species0 for spe in species) "species must be the same to join"
 
-    # Concatenate arrays
     x = vcat([pg.x for pg in pgs]...)
     px = vcat([pg.px for pg in pgs]...)
     y = vcat([pg.y for pg in pgs]...)
@@ -372,16 +401,12 @@ function join_particle_groups(pgs::ParticleGroup...)
     )
 end
 
+# ---- HDF5 constructors ----
+
 """
     ParticleGroup(h5::HDF5.Group)
 
 Load particles into a ParticleGroup from an HDF5 file in openPMD format.
-
-# Arguments
-- `h5::HDF5.Group`: HDF5 group containing particle data
-
-# Returns
-- `ParticleGroup`: Particle group containing the loaded data
 """
 function ParticleGroup(h5::HDF5.Group)
 
@@ -393,19 +418,11 @@ function ParticleGroup(h5::HDF5.Group)
         h5 = h5[species[1]]
     end
 
-    # Get attributes
     attributes = attrs(h5)
-
-    # Get species type
     species = Species(attributes["speciesType"])
-
-    # Get number of particles
     n_particle = Int(attributes["numParticles"])
-
-    # Get total charge
     total_charge = attributes["totalCharge"] * attributes["chargeUnitSI"]
 
-    # Get position and momentum data
     x = particle_array(h5, "x")
     px = particle_array(h5, "px")
     y = particle_array(h5, "y")
@@ -414,14 +431,12 @@ function ParticleGroup(h5::HDF5.Group)
     pz = particle_array(h5, "pz")
     t = particle_array(h5, "t")
 
-    # Get particle status
     if haskey(h5, "particleStatus")
         status = particle_array(h5, "particleStatus")
     else
         status = fill(1, n_particle)
     end
 
-    # Get particle weights
     if haskey(h5, "weight")
         weight = particle_array(h5, "weight")
     else
@@ -435,12 +450,6 @@ end
     ParticleGroup(file::String)
 
 Load particles into a ParticleGroup from an HDF5 file in openPMD format.
-
-# Arguments
-- `file::String`: Path to the HDF5 file
-
-# Returns
-- `ParticleGroup`: Particle group containing the loaded data
 """
 function ParticleGroup(file::String)
     h5open(file, "r") do h5

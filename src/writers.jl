@@ -150,8 +150,8 @@ function particle_data_dict(pg::ParticleGroup)
         "status" => pg.status,
         "weight" => pg.weight,
         "species" => nameof(pg.species),
-        "n_particle" => pg.n_particle,
-        "charge" => pg.charge,
+        "n_particle" => length(pg),
+        "charge" => charge(pg),
         "id" => pg.id,
     )
 end
