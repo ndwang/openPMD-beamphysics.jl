@@ -35,7 +35,7 @@ const DIMENSION = Dict{String, NTuple{7, Int}}(
     #
     "charge" => (0, 0, 1, 1, 0, 0, 0),
     "electric_field" => (1, 1, -3, -1, 0, 0, 0),
-    "electric_potential" => (1, 2, -3, -1, 0, 0, 0),
+    "electric_potential" => (2, 1, -3, -1, 0, 0, 0),
     "magnetic_field" => (0, 1, -2, -1, 0, 0, 0),
     "velocity" => (1, 0, -1, 0, 0, 0, 0),
     "energy" => (2, 1, -2, 0, 0, 0, 0),
@@ -93,6 +93,9 @@ const KNOWN_UNITS = Dict{String, Unitful.FreeUnits}(
     "W/m^2" => u"W/m^2",
     "T" => u"T"
 )
+
+# Inverse mapping: Unitful unit -> canonical string symbol
+const UNIT_SYMBOL = Dict{Unitful.FreeUnits, String}(v => k for (k, v) in KNOWN_UNITS)
 
 # Prefix dictionaries
 const PREFIX_FACTOR = Dict{String, Float64}(
@@ -360,8 +363,8 @@ Writes a Unitful unit to an HDF5 handle in openPMD format.
 """
 function write_unit_h5(h5, u::Unitful.FreeUnits)
     attrs(h5)["unitSI"] = SI_conversion_factor(u)
-    attrs(h5)["unitDimension"] = collect(dimension(dimension_name(u)))  # HDF5.jl only accepts arrays for attributes
-    attrs(h5)["unitSymbol"] = string(u) # TODO: uparse(string(u)) does not work on eV/c
+    attrs(h5)["unitDimension"] = collect(UnitfulToOpenPMD(u))
+    attrs(h5)["unitSymbol"] = get(UNIT_SYMBOL, u, string(u))
 end
 
 """
@@ -377,7 +380,9 @@ Reads unit data from an HDF5 handle and returns a Unitful FreeUnits object.
 """
 function read_unit_h5(h5)
     unitSymbol = attrs(h5)["unitSymbol"]
-    return Unitful.uparse(unitSymbol)
+    return get(KNOWN_UNITS, unitSymbol) do
+        Unitful.uparse(unitSymbol)
+    end
 end
 
 """

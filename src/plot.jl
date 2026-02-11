@@ -6,6 +6,22 @@ Plotting utilities for particle and field data visualization.
 const CMAP0 = :viridis
 const CMAP1 = :plasma
 
+# Sigma ellipse for 2x2 covariance matrix (1-sigma)
+function _sigma_ellipse(sigma_mat2; n=100)
+    a, b = sigma_mat2[1, 1], sigma_mat2[1, 2]
+    d = sigma_mat2[2, 2]
+    tr = (a + d) / 2
+    disc = sqrt((a - d)^2 / 4 + b^2)
+    λ1, λ2 = tr + disc, tr - disc
+    angle = atan(2b, a - d) / 2
+    t = range(0, 2π, length=n)
+    ca, sa = cos(angle), sin(angle)
+    r1, r2 = sqrt(max(λ1, 0)), sqrt(max(λ2, 0))
+    x = r1 .* ca .* cos.(t) .- r2 .* sa .* sin.(t)
+    y = r1 .* sa .* cos.(t) .+ r2 .* ca .* sin.(t)
+    return x, y
+end
+
 
 """
     slice_plot(particle_group, keys...; n_slice=40, slice_key=nothing, xlim=nothing, ylim=nothing, tex=true, kwargs...)
@@ -257,16 +273,16 @@ function marginal_plot(particle_group, key1="t", key2="p"; bins=nothing, xlim=no
     if length(x) == 1
         scatter!(p, x, y, xlim=plot_xlim, ylim=plot_ylim)
     else
-        histogram2d!(p, x, y, weights(w), bins=bins, color=CMAP0, vmin=1e-20, xlim=plot_xlim, ylim=plot_ylim, colorbar=false)
+        histogram2d!(p, x, y, weights(w), bins=bins, color=CMAP0, clims=(1e-20, Inf), xlim=plot_xlim, ylim=plot_ylim, colorbar=false)
     end
 
     # Add ellipse if requested
     if ellipse
-        sigma_mat2 = particle_group.cov(key1, key2)
-        x_ellipse, y_ellipse = twiss_ellipse_points(sigma_mat2)
-        x_ellipse .+= particle_group.avg(key1)
-        y_ellipse .+= particle_group.avg(key2)
-        plot!(p, x_ellipse./f1, y_ellipse./f2, color=:red)
+        sigma_mat2 = StatsBase.cov(particle_group, key1, key2)
+        x_ellipse, y_ellipse = _sigma_ellipse(sigma_mat2)
+        x_ellipse .+= Statistics.mean(particle_group, key1)
+        y_ellipse .+= Statistics.mean(particle_group, key2)
+        plot!(p, x_ellipse ./ f1, y_ellipse ./ f2, color=:red, label="")
     end
 
     # Add histograms
@@ -345,7 +361,7 @@ function density_and_slice_plot(particle_group, key1="t", key2="p"; stat_keys=["
 
     # Create 2D histogram
     H = fit(Histogram, (x, y), weights(w), nbins=bins)
-    heatmap!(p, H.edges[1], H.edges[2], H.weights', color=CMAP0, vmin=1e-16)
+    heatmap!(p, H.edges[1], H.edges[2], H.weights', color=CMAP0, clims=(1e-16, Inf))
 
     # Get slice data
     slice_dat = slice_statistics(

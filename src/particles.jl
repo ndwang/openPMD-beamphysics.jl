@@ -358,15 +358,18 @@ end
 function split_particles(pg::ParticleGroup; n_chunks=100, key="z")
     zlist = _resolve_key(pg, key)
     iz = sortperm(zlist)
+    n = length(iz)
+    n < n_chunks && throw(ArgumentError("Cannot split $n particles into $n_chunks chunks"))
 
-    plist = ParticleGroup[]
-    for chunk in Iterators.partition(iz, ceil(Int, length(iz)/n_chunks))
-        new_pg = ParticleGroup(
+    edges = round.(Int, range(1, n + 1, length=n_chunks + 1))
+    plist = Vector{ParticleGroup}(undef, n_chunks)
+    for i in 1:n_chunks
+        chunk = iz[edges[i]:edges[i+1]-1]
+        plist[i] = ParticleGroup(
             pg.x[chunk], pg.px[chunk], pg.y[chunk], pg.py[chunk],
             pg.z[chunk], pg.pz[chunk], pg.t[chunk], pg.status[chunk],
             pg.weight[chunk], pg.species, pg.id[chunk]
         )
-        push!(plist, new_pg)
     end
 
     return plist
