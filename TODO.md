@@ -20,9 +20,9 @@
 
 ## P2 — Performance
 
-- [ ] `energy()` is recomputed from scratch every call and is transitively called by `gamma`, `beta`, `beta_x`, `beta_y`, `beta_z`, `drift!`, `average_current`, etc. Consider caching or accepting a pre-computed energy vector
-- [ ] `particles.jl:208-214` — `in_z_coordinates`/`in_t_coordinates` call `unique()` which allocates a full sorted array. Use `all(pg.z .== pg.z[1])` or an approximate check instead
-- [ ] `particles.jl:383-402` — `join_particle_groups` uses `vcat([pg.x for pg in pgs]...)` (intermediate array + splat). Use `reduce(vcat, (pg.x for pg in pgs))` instead
+- [x] `energy()` — compute once in `drift!`, `drift_to_z!` instead of redundantly via `beta_x`/`beta_y`/`beta_z`
+- [x] `particles.jl` — `in_z_coordinates`/`in_t_coordinates` now use `all(==(v[1]), v)`: zero allocation, short-circuits
+- [x] `particles.jl` — `join_particle_groups` now uses `reduce(vcat, ...)` instead of `vcat([]...)`
 - [ ] `particles.jl:358-373` — `split_particles` copies all data per slice. Consider a `ParticleGroupView` wrapper backed by index ranges for read-only use cases like slice statistics
 
 ## P3 — Code quality

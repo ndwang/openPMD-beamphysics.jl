@@ -206,11 +206,11 @@ end
 # ---- Coordinate checks ----
 
 function in_z_coordinates(pg::ParticleGroup)
-    return length(unique(pg.z)) == 1
+    return all(==(pg.z[1]), pg.z)
 end
 
 function in_t_coordinates(pg::ParticleGroup)
-    return length(unique(pg.t)) == 1
+    return all(==(pg.t[1]), pg.t)
 end
 
 # ---- average_current ----
@@ -226,22 +226,25 @@ end
 # ---- Drift methods ----
 
 function drift!(pg::ParticleGroup, delta_t::Number)
-    pg.x .+= beta_x(pg) .* C_LIGHT .* delta_t
-    pg.y .+= beta_y(pg) .* C_LIGHT .* delta_t
-    pg.z .+= beta_z(pg) .* C_LIGHT .* delta_t
+    E = energy(pg)
+    pg.x .+= (pg.px ./ E) .* C_LIGHT .* delta_t
+    pg.y .+= (pg.py ./ E) .* C_LIGHT .* delta_t
+    pg.z .+= (pg.pz ./ E) .* C_LIGHT .* delta_t
     pg.t .+= delta_t
 end
 
 function drift!(pg::ParticleGroup, delta_t::AbstractVector)
-    @assert length(delta_t) == length(pg.x) "delta_t length must match number of particles"
-    pg.x .+= beta_x(pg) .* C_LIGHT .* delta_t
-    pg.y .+= beta_y(pg) .* C_LIGHT .* delta_t
-    pg.z .+= beta_z(pg) .* C_LIGHT .* delta_t
+    length(delta_t) == length(pg.x) || throw(ArgumentError("delta_t length must match number of particles"))
+    E = energy(pg)
+    pg.x .+= (pg.px ./ E) .* C_LIGHT .* delta_t
+    pg.y .+= (pg.py ./ E) .* C_LIGHT .* delta_t
+    pg.z .+= (pg.pz ./ E) .* C_LIGHT .* delta_t
     pg.t .+= delta_t
 end
 
 function drift_to_z!(pg::ParticleGroup, z::Real)
-    dt = (z .- pg.z) ./ (beta_z(pg) .* C_LIGHT)
+    E = energy(pg)
+    dt = (z .- pg.z) ./ ((pg.pz ./ E) .* C_LIGHT)
     drift!(pg, dt)
     pg.z .= z
 end
@@ -388,16 +391,16 @@ function join_particle_groups(pgs::ParticleGroup...)
     species0 = species[1]
     @assert all(spe == species0 for spe in species) "species must be the same to join"
 
-    x = vcat([pg.x for pg in pgs]...)
-    px = vcat([pg.px for pg in pgs]...)
-    y = vcat([pg.y for pg in pgs]...)
-    py = vcat([pg.py for pg in pgs]...)
-    z = vcat([pg.z for pg in pgs]...)
-    pz = vcat([pg.pz for pg in pgs]...)
-    t = vcat([pg.t for pg in pgs]...)
-    status = vcat([pg.status for pg in pgs]...)
-    weight = vcat([pg.weight for pg in pgs]...)
-    id = vcat([pg.id for pg in pgs]...)
+    x = reduce(vcat, (pg.x for pg in pgs))
+    px = reduce(vcat, (pg.px for pg in pgs))
+    y = reduce(vcat, (pg.y for pg in pgs))
+    py = reduce(vcat, (pg.py for pg in pgs))
+    z = reduce(vcat, (pg.z for pg in pgs))
+    pz = reduce(vcat, (pg.pz for pg in pgs))
+    t = reduce(vcat, (pg.t for pg in pgs))
+    status = reduce(vcat, (pg.status for pg in pgs))
+    weight = reduce(vcat, (pg.weight for pg in pgs))
+    id = reduce(vcat, (pg.id for pg in pgs))
 
     return ParticleGroup(
         x, px, y, py, z, pz, t, status, weight, species0, id
