@@ -31,9 +31,9 @@
 - [ ] `particles.jl:66-67` — `xp`/`yp` divide by `pz` with no zero-check. Will silently produce `Inf`/`NaN`. Document or guard
 - [ ] `particles.jl:218-224` — `average_current` can return `Inf` when all particles are at the same position and time. Document or guard
 - [ ] `writers.jl:131` — `write_pmd_field` unconditionally converts field data to complex (`complex.(val)`), doubling memory for real-valued fields
-- [ ] `units.jl:363` — `write_unit_h5` does a redundant round-trip: `dimension(dimension_name(u))`. Use `UnitfulToOpenPMD(u)` directly
-- [ ] `plot.jl:163,281` — `bar(..., width=0)` uses wrong keyword. Plots.jl uses `linewidth` or `lw`
+- [x] `units.jl` — `write_unit_h5` now uses `UnitfulToOpenPMD(u)` directly (fixed in P0 commit)
+- [x] `plot.jl` — Replaced `width=0` with `lw=0` in all `bar` calls
 - [ ] `plot.jl:389-630` — 240 lines of commented-out field mesh plotting code with Python-style method calls. Remove from source; track in git history
-- [ ] `utils.jl` — Contains only the 3-line `ptp` function. Inline into another file
+- [x] `utils.jl` — Moved `ptp` into `particles.jl`, deleted `utils.jl`
 - [ ] `particles.jl:99-133` — `DERIVED_PROPERTIES` dict duplicates all standalone functions as lambdas. If a new derived property function is added but not registered in the dict, `pg["prop"]` silently fails. Consider deriving from the function names automatically
-- [ ] Module name `openPMD_beamphysics` uses underscores/lowercase. Julia convention is PascalCase (`OpenPMDBeamPhysics`)
+- [x] Module renamed from `openPMD_beamphysics` to `OpenPMDBeamphysics`

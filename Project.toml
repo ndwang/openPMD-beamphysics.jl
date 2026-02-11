@@ -1,4 +1,4 @@
-name = "openPMD_beamphysics"
+name = "OpenPMDBeamphysics"
 uuid = "f85cbb92-938a-4877-a34b-92f8b55ab56a"
 authors = ["ndwang <ndwang3@gmail.com>"]
 version = "0.1.0"

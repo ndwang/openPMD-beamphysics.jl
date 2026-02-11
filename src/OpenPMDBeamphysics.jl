@@ -1,4 +1,4 @@
-module openPMD_beamphysics
+module OpenPMDBeamphysics
 
 # External dependencies
 using HDF5
@@ -14,7 +14,6 @@ import StatsBase
 import StatsBase: cov
 
 # Include all source files in dependency order
-include("utils.jl")
 include("units.jl")
 include("readers.jl")
 include("particles.jl")
@@ -59,4 +58,4 @@ export mathlabel, texlabel
 # Plotting
 export slice_plot, density_plot, marginal_plot, density_and_slice_plot
 
-end # module openPMD_beamphysics
+end # module OpenPMDBeamphysics

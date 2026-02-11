@@ -176,7 +176,7 @@ function density_plot(particle_group, key="x"; bins=nothing, xlim=nothing, tex=t
 
     plot_xlim = isnothing(xlim) ? (xmin/f1, xmax/f1) : xlim
     # Create plot
-    p = bar(hist_x, hist_y, bar_width=hist_width, width=0, xlim=plot_xlim, color=:gray; kwargs...)
+    p = bar(hist_x, hist_y, bar_width=hist_width, lw=0,xlim=plot_xlim, color=:gray; kwargs...)
 
     # Set labels
     xlabel!(p, labelx)
@@ -294,7 +294,7 @@ function marginal_plot(particle_group, key1="t", key2="p"; bins=nothing, xlim=no
     hist_x_width = diff(hist_x.edges[1])
     hist_x_y, hist_x_f, hist_x_prefix = nice_array(hist_x.weights ./ hist_x_width)
 
-    p_top = bar(hist_x_centers, hist_x_y, bar_width=hist_x_width, width=0, color=:grey, xlim=plot_xlim, 
+    p_top = bar(hist_x_centers, hist_x_y, bar_width=hist_x_width, lw=0,color=:grey, xlim=plot_xlim, 
                 xticks=false, xlabel="", legend=false)
     if u1 == "s"
         _, hist_x_prefix = nice_scale_prefix(hist_x_f/f1)
@@ -308,7 +308,7 @@ function marginal_plot(particle_group, key1="t", key2="p"; bins=nothing, xlim=no
     hist_y_width = diff(hist_y.edges[1])
     hist_y_y, hist_y_f, hist_y_prefix = nice_array(hist_y.weights ./ hist_y_width)
 
-    p_side = bar(hist_y_centers, hist_y_y, bar_width=hist_y_width, width=0, color=:grey, ylim=plot_ylim, orientation=:h,
+    p_side = bar(hist_y_centers, hist_y_y, bar_width=hist_y_width, lw=0,color=:grey, ylim=plot_ylim, orientation=:h,
                  yticks=false, ylabel="", legend=false)
     xlabel!(p_side, "$(hist_y_prefix)" * mathlabel("C/$uy"))
 

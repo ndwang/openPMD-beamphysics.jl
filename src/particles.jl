@@ -185,6 +185,8 @@ function delta(pg::ParticleGroup, key::AbstractString)
     return _resolve_key(pg, key) .- Statistics.mean(pg, key)
 end
 
+ptp(x::AbstractArray) = maximum(x) - minimum(x)
+
 function ptp(pg::ParticleGroup, key::AbstractString)
     return ptp(_resolve_key(pg, key))
 end
