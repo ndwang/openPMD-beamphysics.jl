@@ -88,10 +88,15 @@ function particle_paths(h5::HDF5.File; key="particlesPath")
     basePath = String(attrs(h5)["basePath"])
     particlesPath = String(attrs(h5)[key])
 
+    # "." and "./" mean current directory in openPMD; HDF5.jl cannot resolve them
+    if particlesPath in (".", "./")
+        particlesPath = ""
+    end
+
     if !occursin("%T", basePath)
         return [basePath * particlesPath]
     end
-    
+
     path1, path2 = split(basePath, "%T")
     tlist = keys(h5[path1])
     return [path1 * t * path2 * particlesPath for t in tlist]

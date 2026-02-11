@@ -16,6 +16,7 @@ include("units.jl")
 include("readers.jl")
 include("statistics.jl")
 include("particles.jl")
+include("writers.jl")
 include("labels.jl")
 include("plot.jl")
 
@@ -29,6 +30,8 @@ export A_mat_calc, A_inverse_mat_calc, amplitude_calc, particle_amplitude, norma
 export slice_statistics
 export ParticleGroup, single_particle, twiss, in_z_coordinates, in_t_coordinates, average_current
 export drift!, drift_to_t!, drift_to_z!, split_particles
+export pmd_init, pmd_field_init, write_component_data, write_pmd_bunch, write_pmd_field
+export particle_data_dict, write_particle_group
 export limits, plottable_array
 export mathlabel, texlabel
 export slice_plot, density_plot, marginal_plot, density_and_slice_plot

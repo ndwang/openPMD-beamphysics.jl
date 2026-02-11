@@ -359,9 +359,9 @@ Writes a Unitful unit to an HDF5 handle in openPMD format.
 - `u::Unitful.FreeUnits`: The unit to write
 """
 function write_unit_h5(h5, u::Unitful.FreeUnits)
-    h5["unitSI"] = SI_conversion_factor(u)
-    h5["unitDimension"] = collect(dimension(dimension_name(u)))  # HDF5.jl only accepts arrays for attributes
-    h5["unitSymbol"] = string(u) # TODO: uparse(string(u)) does not work on eV/c
+    attrs(h5)["unitSI"] = SI_conversion_factor(u)
+    attrs(h5)["unitDimension"] = collect(dimension(dimension_name(u)))  # HDF5.jl only accepts arrays for attributes
+    attrs(h5)["unitSymbol"] = string(u) # TODO: uparse(string(u)) does not work on eV/c
 end
 
 """
@@ -376,7 +376,7 @@ Reads unit data from an HDF5 handle and returns a Unitful FreeUnits object.
 - `Unitful.FreeUnits`: The unit read from the HDF5 handle
 """
 function read_unit_h5(h5)
-    unitSymbol = read(h5["unitSymbol"])
+    unitSymbol = attrs(h5)["unitSymbol"]
     return Unitful.uparse(unitSymbol)
 end
 

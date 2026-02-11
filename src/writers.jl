@@ -2,155 +2,170 @@
 Utilities for writing particle and field data to HDF5 files in openPMD format.
 """
 
-# String formatting for HDF5 attributes (identity for now)
-fstr(s::String) = s
-
-# Encode field attributes for HDF5 writing (identity for now)
-encode_attrs(attrs::Dict) = attrs
-
 """
-    pmd_init(h5, basePath="/data/%T/", particlesPath="./")
+    pmd_init(h5; basePath="/data/%T/", particlesPath="./")
 
-Root attribute initialization.
-
+Root attribute initialization for openPMD particle files.
 h5 should be the root of the file.
 """
-function pmd_init(h5, basePath="/data/%T/", particlesPath="./")
-    h5["basePath"] = fstr(basePath)
-    h5["dataType"] = fstr("openPMD")
-    h5["openPMD"] = fstr("2.0.0")
-    h5["openPMDextension"] = fstr("BeamPhysics;SpeciesType")
-    h5["particlesPath"] = fstr(particlesPath)
+function pmd_init(h5; basePath="/data/%T/", particlesPath="./")
+    attrs(h5)["basePath"] = basePath
+    attrs(h5)["dataType"] = "openPMD"
+    attrs(h5)["openPMD"] = "2.0.0"
+    attrs(h5)["openPMDextension"] = "BeamPhysics;SpeciesType"
+    attrs(h5)["particlesPath"] = particlesPath
 end
 
 """
-    pmd_field_init(h5, externalFieldPath="/ExternalFieldPath/%T/")
+    pmd_field_init(h5; externalFieldPath="/ExternalFieldPath/%T/")
 
-Root attribute initialization for an openPMD-beamphysics External Field Mesh
-
+Root attribute initialization for an openPMD-beamphysics External Field Mesh.
 h5 should be the root of the file.
 """
-function pmd_field_init(h5, externalFieldPath="/ExternalFieldPath/%T/")
-    h5["dataType"] = fstr("openPMD")
-    h5["openPMD"] = fstr("2.0.0")
-    h5["openPMDextension"] = fstr("BeamPhysics")
-    h5["externalFieldPath"] = fstr(externalFieldPath)
+function pmd_field_init(h5; externalFieldPath="/ExternalFieldPath/%T/")
+    attrs(h5)["dataType"] = "openPMD"
+    attrs(h5)["openPMD"] = "2.0.0"
+    attrs(h5)["openPMDextension"] = "BeamPhysics"
+    attrs(h5)["externalFieldPath"] = externalFieldPath
 end
 
 """
-    write_pmd_bunch(h5, data, name=nothing)
+    write_component_data(h5, name, data; unit=nothing)
 
-Data is a dict with:
-    Array: 'x', 'px', 'y', 'py', 'z', 'pz', 't', 'status', 'weight'
-    String: 'species'
-    Int: n_particle
+Write a single record component to an HDF5 group.
 
-Optional data:
-    Array: 'id'
+If all values in `data` are equal (constant component), a group is created with
+`value` and `shape` stored as attributes. Otherwise, a dataset is created.
 
-See inverse routine:
-    .particles.load_bunch_data
+Unit metadata is written via `write_unit_h5` when `unit` is provided.
 """
-function write_pmd_bunch(h5, data; name=nothing)
+function write_component_data(h5, name, data; unit=nothing)
+    dat0 = data[1]
+
+    if all(x -> x == dat0, data)
+        # Constant component: store as group with value/shape attributes
+        g = create_group(h5, name)
+        attrs(g)["value"] = dat0
+        attrs(g)["shape"] = collect(size(data))
+    else
+        # Non-constant: store as dataset
+        h5[name] = data
+        g = h5[name]
+    end
+
+    if !isnothing(unit)
+        write_unit_h5(g, unit)
+    end
+
+    return g
+end
+
+"""
+    write_pmd_bunch(h5, data::Dict; name=nothing)
+
+Write particle bunch data in openPMD format.
+
+`data` is a Dict with:
+- Array keys: `"x"`, `"px"`, `"y"`, `"py"`, `"z"`, `"pz"`, `"t"`, `"status"`, `"weight"`
+- String key: `"species"`
+- Int key: `"n_particle"`
+- Float key: `"charge"`
+- Optional array key: `"id"`
+
+See inverse routine: `ParticleGroup(h5::HDF5.Group)`
+"""
+function write_pmd_bunch(h5, data::Dict; name=nothing)
     g = isnothing(name) ? h5 : create_group(h5, name)
 
-    # Write into species group
+    # Create species subgroup
     species = data["species"]
     g = create_group(g, species)
 
-    # Attributes
-    g["speciesType"] = fstr(species)
-    g["numParticles"] = data["n_particle"]
-    g["totalCharge"] = data["charge"]
-    g["chargeUnitSI"] = 1.0
+    # Species attributes
+    attrs(g)["speciesType"] = species
+    attrs(g)["numParticles"] = data["n_particle"]
+    attrs(g)["totalCharge"] = data["charge"]
+    attrs(g)["chargeUnitSI"] = 1.0
 
-    # Required Datasets
+    # Required components
     for key in ["x", "px", "y", "py", "z", "pz", "t", "status", "weight"]
-        # Get full name, write data
         g2_name = COMPONENT_FROM_ALIAS[key]
-
-        # Units
         u = pg_units(key)
-
-        # Write
-        write_component_data(g, g2_name, data[key], unit=u)
+        write_component_data(g, g2_name, data[key]; unit=u)
     end
 
-    # Optional id. This does not have any units.
+    # Optional id (no units)
     if haskey(data, "id")
         g["id"] = data["id"]
     end
 end
 
 """
-    write_pmd_field(h5, data; name=nothing)
+    write_pmd_field(h5, data::Dict; name=nothing)
 
-Data is a dict with:
-    attrs: flat dict of attributes.
-    components: flat dict of components
+Write field mesh data in openPMD format.
 
-See inverse routine:
-    .readers.load_field_data
+`data` is a Dict with:
+- `"attrs"`: flat dict of field attributes
+- `"components"`: flat dict of component name => array
+
+See inverse routine: `load_field_attrs`
 """
-function write_pmd_field(h5, data; name=nothing)
+function write_pmd_field(h5, data::Dict; name=nothing)
     g = isnothing(name) ? h5 : create_group(h5, name)
 
     # Validate attrs
-    attrs, other = load_field_attrs(data["attrs"])
-
-    # Encode for writing
-    attrs = encode_attrs(attrs)
+    field_attrs, other = load_field_attrs(data["attrs"])
 
     # Write attributes
-    for (k, v) in attrs
-        g[k] = v
+    for (k, v) in field_attrs
+        attrs(g)[k] = v
     end
-
-    # All other attributes (don't change them)
     for (k, v) in other
-        g[k] = v
+        attrs(g)[k] = v
     end
 
-    # write components (datasets)
+    # Write components
     for (key, val) in data["components"]
-        # Units
         u = pg_units(key)
-
-        # Ensure complex
         val = complex.(val)
-
-        # Write
-        write_component_data(g, key, val, unit=u)
+        write_component_data(g, key, val; unit=u)
     end
 end
 
 """
-    write_component_data(h5, name, data, unit=nothing)
+    particle_data_dict(pg::ParticleGroup) -> Dict{String, Any}
 
-Writes data to a dataset h5[name]
-
-If data is a constant array, a group is created with the constant value and shape
-
-If unit is given, this will be used
+Extract a Dict from a ParticleGroup in the format expected by `write_pmd_bunch`.
 """
-function write_component_data(h5, name, data, unit=nothing)
-    # Check for constant component
-    dat0 = data[1]
+function particle_data_dict(pg::ParticleGroup)
+    return Dict{String, Any}(
+        "x" => pg.x,
+        "px" => pg.px,
+        "y" => pg.y,
+        "py" => pg.py,
+        "z" => pg.z,
+        "pz" => pg.pz,
+        "t" => pg.t,
+        "status" => pg.status,
+        "weight" => pg.weight,
+        "species" => nameof(pg.species),
+        "n_particle" => pg.n_particle,
+        "charge" => pg.charge,
+        "id" => pg.id,
+    )
+end
 
-    if all(x -> x == dat0, data)
-        g = create_group(h5, name)
-        g["value"] = dat0
-        g["shape"] = size(data)
-    else
-        h5[name] = data
-        g = h5[name]
+"""
+    write_particle_group(filename::String, pg::ParticleGroup)
+
+Write a ParticleGroup to an HDF5 file in openPMD format.
+This is the inverse of `ParticleGroup(filename::String)`.
+"""
+function write_particle_group(filename::String, pg::ParticleGroup)
+    h5open(filename, "w") do h5
+        pmd_init(h5)
+        g = create_group(h5, "data/1")
+        write_pmd_bunch(g, particle_data_dict(pg))
     end
-
-    if !isnothing(unit)
-        g["unitSI"] = unit.unitSI
-        g["unitDimension"] = unit.unitDimension
-        g["unitSymbol"] = fstr(unit.unitSymbol)
-    end
-
-    return g
 end
