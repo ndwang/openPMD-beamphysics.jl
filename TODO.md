@@ -13,11 +13,10 @@
 ## P1 — Important improvements
 
 - [ ] No test suite. Add `test/runtests.jl` with at minimum: HDF5 round-trip, unit conversion, statistics correctness, slice statistics
-- [ ] `Project.toml` — Compat bounds are too strict (e.g. `HDF5 = "0.17.2"` means exactly that version). Should be `HDF5 = "0.17"` to accept patch releases. Same for all entries
-- [ ] `Project.toml` — Missing `julia` compat bound. Add e.g. `julia = "1.10"`
-- [ ] `Project.toml` — `Distributions` is declared as a dependency but never used. Remove it
-- [ ] `openPMD_beamphysics.jl` — Exporting common names (`energy`, `mass`, `gamma`, `beta`, `charge`, `momentum`, `r`, `theta`, `delta`) will collide with other packages. Consider selective exports or requiring qualified access
-- [ ] `particles.jl:137-139` — `set_charge!` uses `@assert` for input validation. `@assert` can be compiled out. Use `throw(ArgumentError(...))` instead
+- [x] `Project.toml` — Relaxed compat bounds to accept patch releases (e.g. `HDF5 = "0.17"`). Removed stdlib compat entries
+- [x] `Project.toml` — Added `julia = "1.10"` compat bound
+- [x] `Project.toml` — Removed unused `Distributions` dependency
+- [x] `particles.jl:137-139` — Replaced `@assert` with `throw(ArgumentError(...))`
 
 ## P2 — Performance
 

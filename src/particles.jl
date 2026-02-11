@@ -135,7 +135,7 @@ const DERIVED_PROPERTIES = Dict{String, Any}(
 # ---- set_charge! ----
 
 function set_charge!(pg::ParticleGroup, val)
-    @assert val > 0 "charge must be >0. This is used to weight the particles."
+    val > 0 || throw(ArgumentError("charge must be >0. This is used to weight the particles."))
     pg.weight .*= val / charge(pg)
 end
 
