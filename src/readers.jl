@@ -36,7 +36,7 @@ const FIELD_RECORD_COMPONENTS = Dict{String, Vector{String}}(
 )
 
 # Expected unit dimensions for particle and field records
-const EXPECTED_RECORD_UNIT_DIMENSION = Dict{String, NTuple{7, Int}}(
+const EXPECTED_RECORD_UNIT_DIMENSION = Dict{String, NTuple{7, Float64}}(
     "branchIndex" => DIMENSION["1"],
     "chargeState" => DIMENSION["1"],
     "electricField" => DIMENSION["electric_field"],
@@ -300,7 +300,7 @@ function component_str(particle_group, name)
     g = particle_group[name]
     record_name = split(name, "/")[1]
     expected_dimension = EXPECTED_RECORD_UNIT_DIMENSION[record_name]
-    this_dimension = Tuple(attrs(g)["unitDimension"])
+    this_dimension = NTuple{7,Float64}(attrs(g)["unitDimension"])
     dname = dimension_name(this_dimension)
     symbol = SI_SYMBOL[dname]
 

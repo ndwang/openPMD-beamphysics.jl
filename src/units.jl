@@ -1,257 +1,346 @@
 """
-Simple units functionality for the openPMD beamphysics records.
+Self-contained units for the openPMD beamphysics records.
 
-This module provides utilities for handling units in openPMD beamphysics records, including:
-- Conversion between Unitful.jl units and openPMD 7-tuple dimension format
-- Unit conversion and scaling
-- HDF5 I/O with unit support
-- SI prefix handling
-
-For more advanced units functionality, use Unitful.jl directly.
+Replaces Unitful.jl with a lightweight PMDUnit struct that carries a symbol string,
+an SI conversion factor, and the openPMD 7-tuple dimension vector (L,M,T,I,Θ,N,J).
 """
 
-# Map Unitful dimensions to openPMD 7-tuple format
-const DIMENSION_MAP = Dict{Type, Int}(
-    Unitful.Dimension{:Length} => 1,
-    Unitful.Dimension{:Mass} => 2,
-    Unitful.Dimension{:Time} => 3,
-    Unitful.Dimension{:Current} => 4,
-    Unitful.Dimension{:Temperature} => 5,
-    Unitful.Dimension{:Amount} => 6,
-    Unitful.Dimension{:Luminosity} => 7
+# ── PMDUnit struct ──────────────────────────────────────────────────────────
+
+"""
+    PMDUnit(symbol, scale, dims)
+
+A physical unit described by its symbol string, SI scale factor, and openPMD
+7-tuple dimension vector `(length, mass, time, current, temperature, amount, luminosity)`.
+
+Dimensions are `Float64` to support fractional exponents (e.g. `m^(1/2)`).
+"""
+struct PMDUnit
+    symbol::String
+    scale::Float64
+    dims::NTuple{7,Float64}
+
+    function PMDUnit(symbol::String, scale::Float64, dims::NTuple{7,Float64})
+        # Normalize -0.0 → +0.0 so that isequal / hash behave consistently
+        new(symbol, scale, ntuple(i -> dims[i] + 0.0, 7))
+    end
+end
+
+# Accept any Real for scale
+PMDUnit(sym::String, scale::Real, dims::NTuple{7,Float64}) =
+    PMDUnit(sym, Float64(scale), dims)
+
+# Accept any iterable convertible to NTuple{7,Float64}
+PMDUnit(sym::String, scale::Real, dims) =
+    PMDUnit(sym, Float64(scale), NTuple{7,Float64}(dims))
+
+# ── Dimension dictionaries ──────────────────────────────────────────────────
+
+const DIMENSION = Dict{String, NTuple{7,Float64}}(
+    "1"                  => (0., 0., 0., 0., 0., 0., 0.),
+    "length"             => (1., 0., 0., 0., 0., 0., 0.),
+    "mass"               => (0., 1., 0., 0., 0., 0., 0.),
+    "time"               => (0., 0., 1., 0., 0., 0., 0.),
+    "current"            => (0., 0., 0., 1., 0., 0., 0.),
+    "temperature"        => (0., 0., 0., 0., 1., 0., 0.),
+    "mol"                => (0., 0., 0., 0., 0., 1., 0.),
+    "luminous"           => (0., 0., 0., 0., 0., 0., 1.),
+    "charge"             => (0., 0., 1., 1., 0., 0., 0.),
+    "electric_field"     => (1., 1.,-3.,-1., 0., 0., 0.),
+    "electric_potential" => (2., 1.,-3.,-1., 0., 0., 0.),
+    "magnetic_field"     => (0., 1.,-2.,-1., 0., 0., 0.),
+    "velocity"           => (1., 0.,-1., 0., 0., 0., 0.),
+    "energy"             => (2., 1.,-2., 0., 0., 0., 0.),
+    "momentum"           => (1., 1.,-1., 0., 0., 0., 0.),
 )
 
-# Base dimensions for openPMD
-const DIMENSION = Dict{String, NTuple{7, Int}}(
-    "1" => (0, 0, 0, 0, 0, 0, 0),
-    # Base units
-    "length" => (1, 0, 0, 0, 0, 0, 0),
-    "mass" => (0, 1, 0, 0, 0, 0, 0),
-    "time" => (0, 0, 1, 0, 0, 0, 0),
-    "current" => (0, 0, 0, 1, 0, 0, 0),
-    "temperature" => (0, 0, 0, 0, 1, 0, 0),
-    "mol" => (0, 0, 0, 0, 0, 1, 0),
-    "luminous" => (0, 0, 0, 0, 0, 0, 1),
-    #
-    "charge" => (0, 0, 1, 1, 0, 0, 0),
-    "electric_field" => (1, 1, -3, -1, 0, 0, 0),
-    "electric_potential" => (2, 1, -3, -1, 0, 0, 0),
-    "magnetic_field" => (0, 1, -2, -1, 0, 0, 0),
-    "velocity" => (1, 0, -1, 0, 0, 0, 0),
-    "energy" => (2, 1, -2, 0, 0, 0, 0),
-    "momentum" => (1, 1, -1, 0, 0, 0, 0)
-)
+const DIMENSION_NAME = Dict{NTuple{7,Float64}, String}(v => k for (k, v) in DIMENSION)
 
-# Inverse mapping
-const DIMENSION_NAME = Dict{NTuple{7, Int}, String}(v => k for (k, v) in DIMENSION)
-
-# SI symbols
 const SI_SYMBOL = Dict{String, String}(
-    "1" => "1",
-    "length" => "m",
-    "mass" => "kg",
-    "time" => "s",
-    "current" => "A",
-    "temperature" => "K",
-    "mol" => "mol",
-    "luminous" => "cd",
-    "charge" => "C",
-    "electric_field" => "V/m",
-    "electric_potential" => "V",
-    "velocity" => "m/s",
-    "energy" => "J",
-    "momentum" => "kg⋅m/s",
-    "magnetic_field" => "T"
+    "1"                  => "1",
+    "length"             => "m",
+    "mass"               => "kg",
+    "time"               => "s",
+    "current"            => "A",
+    "temperature"        => "K",
+    "mol"                => "mol",
+    "luminous"           => "cd",
+    "charge"             => "C",
+    "electric_field"     => "V/m",
+    "electric_potential"  => "V",
+    "velocity"           => "m/s",
+    "energy"             => "J",
+    "momentum"           => "kg⋅m/s",
+    "magnetic_field"     => "T",
 )
 
-# Inverse mapping
 const SI_NAME = Dict{String, String}(v => k for (k, v) in SI_SYMBOL)
 
-# Known units mapping to Unitful units
-const KNOWN_UNITS = Dict{String, Unitful.FreeUnits}(
-    "1" => NoUnits,
-    "degree" => u"°",
-    "rad" => u"rad",
-    "m" => u"m",
-    "kg" => u"kg",
-    "g" => u"g",
-    "s" => u"s",
-    "A" => u"A",
-    "K" => u"K",
-    "mol" => u"mol",
-    "cd" => u"cd",
-    "C" => u"C",
-    "V/m" => u"V/m",
-    "V" => u"V",
-    "c_light" => u"c",
-    "m/s" => u"m/s",
-    "eV" => u"eV",
-    "J" => u"J",
-    "eV/c" => u"eV/c",
-    "W" => u"W",
-    "W/rad^2" => u"W/rad^2",
-    "W/m^2" => u"W/m^2",
-    "T" => u"T"
-)
-
-# Inverse mapping: Unitful unit -> canonical string symbol
-const UNIT_SYMBOL = Dict{Unitful.FreeUnits, String}(v => k for (k, v) in KNOWN_UNITS)
-
-# Prefix dictionaries
-const PREFIX_FACTOR = Dict{String, Float64}(
-    "yocto-" => 1e-24,
-    "zepto-" => 1e-21,
-    "atto-" => 1e-18,
-    "femto-" => 1e-15,
-    "pico-" => 1e-12,
-    "nano-" => 1e-9,
-    "micro-" => 1e-6,
-    "milli-" => 1e-3,
-    "centi-" => 1e-2,
-    "deci-" => 1e-1,
-    "deca-" => 1e1,
-    "hecto-" => 1e2,
-    "kilo-" => 1e3,
-    "mega-" => 1e6,
-    "giga-" => 1e9,
-    "tera-" => 1e12,
-    "peta-" => 1e15,
-    "exa-" => 1e18,
-    "zetta-" => 1e21,
-    "yotta-" => 1e24
-)
-
-# Inverse
-const PREFIX = Dict{Float64, String}(v => k for (k, v) in PREFIX_FACTOR)
-
-const SHORT_PREFIX_FACTOR = Dict{String, Float64}(
-    "y" => 1e-24,
-    "z" => 1e-21,
-    "a" => 1e-18,
-    "f" => 1e-15,
-    "p" => 1e-12,
-    "n" => 1e-9,
-    "µ" => 1e-6,
-    "m" => 1e-3,
-    "c" => 1e-2,
-    "d" => 1e-1,
-    "" => 1,
-    "da" => 1e1,
-    "h" => 1e2,
-    "k" => 1e3,
-    "M" => 1e6,
-    "G" => 1e9,
-    "T" => 1e12,
-    "P" => 1e15,
-    "E" => 1e18,
-    "Z" => 1e21,
-    "Y" => 1e24
-)
-
-# Inverse
-const SHORT_PREFIX = Dict{Float64, String}(v => k for (k, v) in SHORT_PREFIX_FACTOR)
+# ── 3-arg convenience constructor (with dimension name) ─────────────────────
 
 """
-    dimension(name::String) -> NTuple{7, Int}
+    PMDUnit(symbol, scale, dim_name::String)
+
+Construct a `PMDUnit` by looking up `dim_name` in the `DIMENSION` table.
+"""
+PMDUnit(sym::String, scale::Real, dim_name::String) =
+    PMDUnit(sym, Float64(scale), DIMENSION[dim_name])
+
+# ── dimension / dimension_name ──────────────────────────────────────────────
+
+"""
+    dimension(name::String) -> NTuple{7,Float64}
 
 Get the dimension tuple for a named quantity.
-
-The dimension tuple follows the openPMD 7-tuple format:
-1. Length
-2. Mass
-3. Time
-4. Current
-5. Temperature
-6. Amount
-7. Luminosity
 """
 function dimension(name::String)
-    haskey(DIMENSION, name) || error("Invalid unit dimension string: $name. Valid options are: $(join(keys(DIMENSION), ", "))")
+    haskey(DIMENSION, name) || error(
+        "Invalid unit dimension string: $name. " *
+        "Valid options are: $(join(keys(DIMENSION), ", "))")
     return DIMENSION[name]
 end
 
 """
-    UnitfulToOpenPMD(u::Unitful.FreeUnits) -> NTuple{7, Int}
+    dimension_name(dims::NTuple{7,Float64}) -> String
 
-Convert a Unitful.jl unit to openPMD 7-tuple dimension format.
+Get the human-readable name for a dimension tuple.
 """
-function UnitfulToOpenPMD(u::Unitful.FreeUnits)
-    # Get the dimension from Unitful
-    # dim is a tuple of dimension objects
-    dim = typeof(Unitful.dimension(u)).parameters[1]
-    # Extract the power of each dimension
-    dim_array = zeros(Int, 7)
-    for d in dim
-        idx = get(DIMENSION_MAP, typeof(d)) do
-            error("Unknown dimension type: $(typeof(d))")
-        end
-        dim_array[idx] = d.power
+function dimension_name(dims::NTuple{7,Float64})
+    haskey(DIMENSION_NAME, dims) || error("Unknown dimension tuple: $dims")
+    return DIMENSION_NAME[dims]
+end
+
+"""
+    dimension_name(u::PMDUnit) -> String
+"""
+dimension_name(u::PMDUnit) = dimension_name(u.dims)
+
+# ── Predicates ──────────────────────────────────────────────────────────────
+
+is_dimensionless(u::PMDUnit) = all(d == 0.0 for d in u.dims)
+is_identity(u::PMDUnit)      = is_dimensionless(u) && u.scale == 1.0
+
+# ── Base overloads ──────────────────────────────────────────────────────────
+
+Base.show(io::IO, u::PMDUnit) = print(io, u.symbol)
+
+Base.:(==)(a::PMDUnit, b::PMDUnit) =
+    a.symbol == b.symbol && a.scale == b.scale && a.dims == b.dims
+
+Base.hash(u::PMDUnit, h::UInt) =
+    hash(u.symbol, hash(u.scale, hash(u.dims, h)))
+
+# ── Arithmetic ──────────────────────────────────────────────────────────────
+
+function _format_power(p::Real)
+    if isinteger(p) && abs(p) < 100
+        return string(Int(p))
+    elseif p == 0.5
+        return "(1/2)"
+    elseif p == -0.5
+        return "(-1/2)"
+    elseif p == 1.5
+        return "(3/2)"
+    elseif p == -1.5
+        return "(-3/2)"
+    else
+        return string(p)
     end
-    return Tuple(dim_array)
 end
 
 """
-    dimension_name(dim_array::NTuple{7, Int}) -> String
+    power_unit(u::PMDUnit, p::Real) -> PMDUnit
 
-Get the name of a dimension tuple.
+Raise unit to power `p`.
 """
-function dimension_name(dim_array::NTuple{7, Int})
-    haskey(DIMENSION_NAME, dim_array) || error("Unknown dimension tuple: $dim_array")
-    return DIMENSION_NAME[dim_array]
+function power_unit(u::PMDUnit, p::Real)
+    p == 0 && return PMDUnit("", 1.0, ntuple(_ -> 0.0, 7))
+    p == 1 && return u
+
+    if isempty(u.symbol)
+        return PMDUnit("", u.scale^p, NTuple{7,Float64}(p .* u.dims))
+    end
+
+    ps = _format_power(p)
+    sym = occursin(r"[*/]", u.symbol) ? "($(u.symbol))^$ps" : "$(u.symbol)^$ps"
+    return PMDUnit(sym, u.scale^p, NTuple{7,Float64}(p .* u.dims))
 end
 
 """
-    dimension_name(u::Unitful.FreeUnits) -> String
+    sqrt_unit(u::PMDUnit) -> PMDUnit
 
-Get the name of a Unitful unit's dimensions.
+Take the square root of a unit (power 1/2).
 """
-function dimension_name(u::Unitful.FreeUnits)
-    return dimension_name(UnitfulToOpenPMD(u))
+sqrt_unit(u::PMDUnit) = power_unit(u, 0.5)
+
+function Base.:*(a::PMDUnit, b::PMDUnit)
+    is_identity(a) && return b
+    is_identity(b) && return a
+    sym = a.symbol == b.symbol ? "($(a.symbol))^2" : "$(a.symbol)*$(b.symbol)"
+    return PMDUnit(sym, a.scale * b.scale, NTuple{7,Float64}(a.dims .+ b.dims))
 end
 
-"""
-    SI_conversion_factor(unit::Unitful.Units) -> Float64
-
-Returns the conversion factor to convert from the given unit to SI units.
-"""
-function SI_conversion_factor(unit::Unitful.Units)
-    # 1. Create a quantity with magnitude 1 of the given unit
-    quantity_one = 1.0 * unit
-    # 2. Convert to preferred SI units (Unitful's default preferred system is SI)
-    si_quantity = upreferred(quantity_one)
-    # 3. Strip the units to get the numerical factor
-    factor = ustrip(si_quantity)
-
-    return factor
+function Base.:/(a::PMDUnit, b::PMDUnit)
+    if a.symbol == b.symbol && a.scale == b.scale
+        return PMDUnit("", 1.0, ntuple(_ -> 0.0, 7))
+    end
+    is_identity(b) && return a
+    sym = "$(a.symbol)/$(b.symbol)"
+    return PMDUnit(sym, a.scale / b.scale, NTuple{7,Float64}(a.dims .- b.dims))
 end
 
-"""
-    unit_conversion_factor(src_unit::Unitful.FreeUnits, dst_unit::Unitful.FreeUnits) -> Float64
+# ── Named-unit registry ────────────────────────────────────────────────────
 
-Calculate the conversion factor between two units.
-"""
-function unit_conversion_factor(src_unit::Unitful.FreeUnits, dst_unit::Unitful.FreeUnits)
-    # 1. Create a quantity with magnitude 1 of src_unit
-    quantity_one = 1.0 * src_unit
-    # 2. Convert to dst_unit
-    si_quantity = uconvert(dst_unit, quantity_one)
-    # 3. Strip the units to get the numerical factor
-    factor = ustrip(si_quantity)
+const NAMED_UNITS = [
+    PMDUnit("",       1.0,                "1"),
+    PMDUnit("rad",    1.0,                "1"),
+    PMDUnit("degree", π/180,              "1"),
+    PMDUnit("m",      1.0,                "length"),
+    PMDUnit("kg",     1.0,                "mass"),
+    PMDUnit("g",      1e-3,               "mass"),
+    PMDUnit("s",      1.0,                "time"),
+    PMDUnit("A",      1.0,                "current"),
+    PMDUnit("K",      1.0,                "temperature"),
+    PMDUnit("mol",    1.0,                "mol"),
+    PMDUnit("cd",     1.0,                "luminous"),
+    PMDUnit("C",      1.0,                "charge"),
+    PMDUnit("V/m",    1.0,                "electric_field"),
+    PMDUnit("V",      1.0,                "electric_potential"),
+    PMDUnit("c",      C_LIGHT,            "velocity"),
+    PMDUnit("m/s",    1.0,                "velocity"),
+    PMDUnit("eV",     E_CHARGE,           "energy"),
+    PMDUnit("J",      1.0,                "energy"),
+    PMDUnit("eV/c",   E_CHARGE/C_LIGHT,   "momentum"),
+    PMDUnit("W",      1.0, (2., 1., -3., 0., 0., 0., 0.)),          # power
+    PMDUnit("T",      1.0,                "magnetic_field"),
+]
 
-    return factor
+const KNOWN_UNIT = Dict{String,PMDUnit}(u.symbol => u for u in NAMED_UNITS)
+KNOWN_UNIT["1"]       = KNOWN_UNIT[""]      # alias: "1" → dimensionless
+KNOWN_UNIT["c_light"] = KNOWN_UNIT["c"]     # legacy alias
+
+# ── Symbol parser ───────────────────────────────────────────────────────────
+
+"""
+    PMDUnit(symbol::String)
+
+Construct a `PMDUnit` by parsing a unit symbol string such as `"eV/c"`,
+`"m^(1/2)"`, or `"kg*m/s"`.
+"""
+function PMDUnit(symbol::String)
+    haskey(KNOWN_UNIT, symbol) && return KNOWN_UNIT[symbol]
+    return _parse_unit_symbol(symbol)
 end
+
+function _parse_unit_symbol(s::String)
+    # Handle sqrt(…) wrapper
+    m = match(r"^sqrt\((.+)\)$", s)
+    if m !== nothing
+        inner = PMDUnit(String(m[1]))
+        r = sqrt_unit(inner)
+        return PMDUnit(s, r.scale, r.dims)
+    end
+
+    scale = 1.0
+    dims  = ntuple(_ -> 0.0, 7)
+    sign  = 1          # +1 = multiply, -1 = divide
+    token_start  = 1
+    paren_depth  = 0
+
+    for i in eachindex(s)
+        c = s[i]
+        if c == '('
+            paren_depth += 1
+        elseif c == ')'
+            paren_depth -= 1
+        elseif paren_depth == 0 && (c == '*' || c == '/')
+            tok = strip(s[token_start:prevind(s, i)])
+            if !isempty(tok)
+                u = _parse_single_unit(String(tok))
+                if sign == 1
+                    scale *= u.scale
+                    dims   = dims .+ u.dims
+                else
+                    scale /= u.scale
+                    dims   = dims .- u.dims
+                end
+            end
+            sign = c == '*' ? 1 : -1
+            token_start = nextind(s, i)
+        end
+    end
+
+    # Last token
+    tok = strip(s[token_start:end])
+    if !isempty(tok)
+        u = _parse_single_unit(String(tok))
+        if sign == 1
+            scale *= u.scale
+            dims   = dims .+ u.dims
+        else
+            scale /= u.scale
+            dims   = dims .- u.dims
+        end
+    end
+
+    return PMDUnit(s, scale, NTuple{7,Float64}(dims))
+end
+
+function _parse_single_unit(token::String)
+    # Handle power notation: base^exp
+    m = match(r"^(.+)\^(.+)$", token)
+    if m !== nothing
+        base  = String(m[1])
+        power = _parse_power(String(m[2]))
+        return power_unit(_lookup_unit(base), power)
+    end
+    return _lookup_unit(token)
+end
+
+function _parse_power(s::String)
+    # (n/d) fractional form, e.g. "(1/2)", "(-3/2)"
+    m = match(r"^\((-?\d+)/(\d+)\)$", s)
+    m !== nothing && return parse(Float64, m[1]) / parse(Float64, m[2])
+    return parse(Float64, s)
+end
+
+function _lookup_unit(name::String)
+    haskey(KNOWN_UNIT, name) || error("Unknown unit: \"$name\"")
+    return KNOWN_UNIT[name]
+end
+
+# ── SI prefix tables ───────────────────────────────────────────────────────
+
+const PREFIX_FACTOR = Dict{String, Float64}(
+    "yocto-" => 1e-24, "zepto-" => 1e-21, "atto-"  => 1e-18,
+    "femto-" => 1e-15, "pico-"  => 1e-12, "nano-"  => 1e-9,
+    "micro-" => 1e-6,  "milli-" => 1e-3,  "centi-" => 1e-2,
+    "deci-"  => 1e-1,  "deca-"  => 1e1,   "hecto-" => 1e2,
+    "kilo-"  => 1e3,   "mega-"  => 1e6,   "giga-"  => 1e9,
+    "tera-"  => 1e12,  "peta-"  => 1e15,  "exa-"   => 1e18,
+    "zetta-" => 1e21,  "yotta-" => 1e24,
+)
+
+const PREFIX = Dict{Float64, String}(v => k for (k, v) in PREFIX_FACTOR)
+
+const SHORT_PREFIX_FACTOR = Dict{String, Float64}(
+    "y"  => 1e-24, "z"  => 1e-21, "a"  => 1e-18,
+    "f"  => 1e-15, "p"  => 1e-12, "n"  => 1e-9,
+    "µ"  => 1e-6,  "m"  => 1e-3,  "c"  => 1e-2,
+    "d"  => 1e-1,  ""   => 1,     "da" => 1e1,
+    "h"  => 1e2,   "k"  => 1e3,   "M"  => 1e6,
+    "G"  => 1e9,   "T"  => 1e12,  "P"  => 1e15,
+    "E"  => 1e18,  "Z"  => 1e21,  "Y"  => 1e24,
+)
+
+const SHORT_PREFIX = Dict{Float64, String}(v => k for (k, v) in SHORT_PREFIX_FACTOR)
+
+# ── nice_scale_prefix / nice_array / limits / plottable_array ───────────────
 
 """
     nice_scale_prefix(scale::Real) -> Tuple{Float64, String}
 
-Returns a nice factor and an SI prefix string.
-
-# Arguments
-- `scale::Real`: The value to scale
-
-# Returns
-- scaling::Float64: The nice scaling factor
-- prefix::String: The SI prefix string corresponding to the scale
+Return a nice scaling factor and the corresponding SI prefix string.
 """
 function nice_scale_prefix(scale::Real)
     if scale == 0
@@ -260,7 +349,7 @@ function nice_scale_prefix(scale::Real)
 
     p10 = log10(abs(scale))
 
-    if p10 < -24  # Limits of SI prefixes
+    if p10 < -24
         f = 1e-24
     elseif p10 > 24
         f = 1e24
@@ -276,126 +365,74 @@ end
 """
     nice_array(a::AbstractArray) -> Tuple{AbstractArray, Float64, String}
 
-Scale an input array and return the scaled array, the scaling factor, and the
-corresponding unit prefix.
-
-# Arguments
-- `a::AbstractArray`: The input array to scale
-
-# Returns
-- scaled_array::AbstractArray: The scaled array
-- scaling::Float64: The scaling factor
-- prefix::String: The SI prefix string corresponding to the scale
+Scale an array and return `(scaled, factor, prefix)`.
 """
 function nice_array(a::AbstractArray)
     if length(a) == 1
         x = a[1]
     else
-        x = maximum((maximum(a)-minimum(a), abs(mean(a))))  # Account for tiny spread
+        x = maximum((maximum(a) - minimum(a), abs(mean(a))))
     end
-
     fac, prefix = nice_scale_prefix(x)
     return a ./ fac, fac, prefix
 end
 
 """
-    nice_array(a) -> Tuple{typeof(a), Float64, String}
+    nice_array(a) -> Tuple
 
-Scale an input scalar and return the scaled scalar, the scaling factor, and the
-corresponding unit prefix.
-
-# Arguments
-- `a`: The input scalar to scale
-
-# Returns
-- scaled_scalar: The scaled scalar
-- scaling::Float64: The scaling factor
-- prefix::String: The SI prefix string corresponding to the scale
+Scalar version.
 """
 function nice_array(a)
     fac, prefix = nice_scale_prefix(a)
     return a / fac, fac, prefix
 end
 
-
 """
     limits(x::AbstractArray) -> Tuple
-
-Get the limits of an array.
 """
-function limits(x::AbstractArray)
-    return minimum(x), maximum(x)
-end
+limits(x::AbstractArray) = (minimum(x), maximum(x))
 
 """
-    plottable_array(x::AbstractArray; lim::Union{Nothing, Tuple{Real, Real}}=nothing) -> Tuple{AbstractArray, Float64, String, Real, Real}
+    plottable_array(x; lim=nothing) -> Tuple
 
-Scale an input array and return the scaled array, the scaling factor, the
-corresponding unit prefix, and the limits of the array.
-
-# Arguments
-- `x::AbstractArray`: The input array to scale
-- `lim::Union{Nothing, Tuple{Real, Real}}`: The limits of the array
-
-# Returns
-- scaled_array::AbstractArray: The scaled array
-- scaling::Float64: The scaling factor
-- prefix::String: The SI prefix string corresponding to the scale
-- xmin::Real: The minimum value of the array
-- xmax::Real: The maximum value of the array
+Scale an array for plotting, returning `(scaled, factor, prefix, xmin, xmax)`.
 """
 function plottable_array(x::AbstractArray; lim::Union{Nothing, Tuple{Real, Real}}=nothing)
     xmin, xmax = lim === nothing ? limits(x) : lim
-
     _, factor, p1 = nice_array([xmin, xmax])
-
     return x ./ factor, factor, p1, xmin, xmax
 end
 
-"""
-    write_unit_h5(h5, u::Unitful.FreeUnits)
+# ── HDF5 I/O ───────────────────────────────────────────────────────────────
 
-Writes a Unitful unit to an HDF5 handle in openPMD format.
-
-# Arguments
-- `h5`: HDF5 handle to write to
-- `u::Unitful.FreeUnits`: The unit to write
 """
-function write_unit_h5(h5, u::Unitful.FreeUnits)
-    attrs(h5)["unitSI"] = SI_conversion_factor(u)
-    attrs(h5)["unitDimension"] = collect(UnitfulToOpenPMD(u))
-    attrs(h5)["unitSymbol"] = get(UNIT_SYMBOL, u, string(u))
+    write_unit_h5(h5, u::PMDUnit)
+
+Write a PMDUnit to an HDF5 handle as openPMD unit attributes.
+"""
+function write_unit_h5(h5, u::PMDUnit)
+    attrs(h5)["unitSI"]        = u.scale
+    attrs(h5)["unitDimension"] = collect(u.dims)
+    attrs(h5)["unitSymbol"]    = u.symbol
 end
 
 """
-    read_unit_h5(h5) -> Unitful.FreeUnits
+    read_unit_h5(h5) -> PMDUnit
 
-Reads unit data from an HDF5 handle and returns a Unitful FreeUnits object.
-
-# Arguments
-- `h5`: HDF5 handle to read from
-
-# Returns
-- `Unitful.FreeUnits`: The unit read from the HDF5 handle
+Read unit metadata from an HDF5 handle and return a `PMDUnit`.
 """
 function read_unit_h5(h5)
-    unitSymbol = attrs(h5)["unitSymbol"]
-    return get(KNOWN_UNITS, unitSymbol) do
-        Unitful.uparse(unitSymbol)
-    end
+    sym = String(attrs(h5)["unitSymbol"])
+    haskey(KNOWN_UNIT, sym) && return KNOWN_UNIT[sym]
+    # Fallback: reconstruct from raw attributes
+    return PMDUnit(sym, Float64(attrs(h5)["unitSI"]),
+                   NTuple{7,Float64}(attrs(h5)["unitDimension"]))
 end
 
 """
     read_dataset_and_unit_h5(h5)
 
-Reads a dataset that has openPMD unit attributes.
-
-# Arguments
-- `h5`: HDF5 handle to read from
-
-# Returns
-- data: The data array
-- unit::Unitful.FreeUnits: The unit of the data
+Read a dataset that has openPMD unit attributes.
 """
 function read_dataset_and_unit_h5(h5)
     u = read_unit_h5(h5)
@@ -403,34 +440,36 @@ function read_dataset_and_unit_h5(h5)
 end
 
 """
-    read_dataset_and_unit_h5(h5, expected_unit::String; convert::Bool=true)
+    read_dataset_and_unit_h5(h5, expected_unit::String; convert=true)
 
-Reads a dataset that has openPMD unit attributes and converts it to the expected unit.
-
-# Arguments
-- `h5`: HDF5 handle to read from
-- `expected_unit::String`: The expected unit
-- `convert::Bool`: Whether to convert the data to the expected unit (default: true)
-
-# Returns
-- data: The data array
-- unit::Unitful.FreeUnits: The unit of the data
-
-# Throws
-- `ErrorException`: If the units are incompatible when expected_unit is provided
+Read a dataset and optionally convert to `expected_unit`.
 """
 function read_dataset_and_unit_h5(h5, expected_unit::String; convert::Bool=true)
-    # Read the unit that is there
-    u = read_unit_h5(h5)
-    expected_unit = Unitful.uparse(expected_unit)
-
-    # Check dimensions
-    if Unitful.dimension(u) != Unitful.dimension(expected_unit)
-        error("Unit dimensions do not match: $(u) vs $(expected_unit)")
+    u  = read_unit_h5(h5)
+    eu = PMDUnit(expected_unit)
+    if u.dims != eu.dims
+        error("Unit dimensions do not match: $(u.symbol) vs $(eu.symbol)")
     end
-
     if convert
-        fac = unit_conversion_factor(u, expected_unit)
+        fac = u.scale / eu.scale
+        return fac * Array(h5), eu
+    else
+        return Array(h5), u
+    end
+end
+
+"""
+    read_dataset_and_unit_h5(h5, expected_unit::PMDUnit; convert=true)
+
+Read a dataset and optionally convert to `expected_unit`.
+"""
+function read_dataset_and_unit_h5(h5, expected_unit::PMDUnit; convert::Bool=true)
+    u = read_unit_h5(h5)
+    if u.dims != expected_unit.dims
+        error("Unit dimensions do not match: $(u.symbol) vs $(expected_unit.symbol)")
+    end
+    if convert
+        fac = u.scale / expected_unit.scale
         return fac * Array(h5), expected_unit
     else
         return Array(h5), u
@@ -438,49 +477,9 @@ function read_dataset_and_unit_h5(h5, expected_unit::String; convert::Bool=true)
 end
 
 """
-    read_dataset_and_unit_h5(h5, expected_unit::Unitful.FreeUnits; convert::Bool=true)
+    write_dataset_and_unit_h5(h5, name, data; unit=nothing)
 
-Reads a dataset that has openPMD unit attributes and converts it to the expected unit.
-
-# Arguments
-- `h5`: HDF5 handle to read from
-- `expected_unit::Unitful.FreeUnits`: The expected unit
-- `convert::Bool`: Whether to convert the data to the expected unit (default: true)
-
-# Returns
-- data: The data array
-- unit::Unitful.FreeUnits: The unit of the data
-
-# Throws
-- `ErrorException`: If the units are incompatible when expected_unit is provided
-"""
-function read_dataset_and_unit_h5(h5, expected_unit::Unitful.FreeUnits; convert::Bool=true)
-    # Read the unit that is there
-    u = read_unit_h5(h5)
-
-    # Check dimensions
-    if Unitful.dimension(u) != Unitful.dimension(expected_unit)
-        error("Unit dimensions do not match: $(u) vs $(expected_unit)")
-    end
-
-    if convert
-        fac = unit_conversion_factor(u, expected_unit)
-        return fac * Array(h5), expected_unit
-    else
-        return Array(h5), u
-    end
-end
-
-"""
-    write_dataset_and_unit_h5(h5, name::String, data; unit=nothing)
-
-Writes data and unit to an HDF5 dataset.
-
-# Arguments
-- `h5`: HDF5 handle to write to
-- `name::String`: Name of the dataset
-- `data`: The data to write
-- `unit`: The unit of the data (default: nothing)
+Write data and unit to an HDF5 dataset.
 """
 function write_dataset_and_unit_h5(h5, name::String, data; unit=nothing)
     h5[name] = data
@@ -489,121 +488,120 @@ function write_dataset_and_unit_h5(h5, name::String, data; unit=nothing)
     end
 end
 
-# ParticleGroup units
-const PARTICLEGROUP_UNITS = Dict{String, Unitful.FreeUnits}(
+# ── ParticleGroup units ─────────────────────────────────────────────────────
+
+const _DL = KNOWN_UNIT[""]       # dimensionless
+const _M  = KNOWN_UNIT["m"]
+const _S  = KNOWN_UNIT["s"]
+const _EV = KNOWN_UNIT["eV"]
+const _PC = KNOWN_UNIT["eV/c"]
+const _RAD = KNOWN_UNIT["rad"]
+const _COUL = KNOWN_UNIT["C"]
+const _AMP  = KNOWN_UNIT["A"]
+const _VM  = KNOWN_UNIT["V/m"]
+const _T   = KNOWN_UNIT["T"]
+
+const PARTICLEGROUP_UNITS = Dict{String, PMDUnit}(
     # Basic quantities
-    "n_particle" => NoUnits,
-    "status" => NoUnits,
-    "id" => NoUnits,
-    "n_alive" => NoUnits,
-    "n_dead" => NoUnits,
-    
+    "n_particle" => _DL,
+    "status"     => _DL,
+    "id"         => _DL,
+    "n_alive"    => _DL,
+    "n_dead"     => _DL,
+
     # Time
-    "t" => u"s",
-    "z/c" => u"s",
-    
+    "t"   => _S,
+    "z/c" => _S,
+
     # Energy and mass
-    "energy" => u"eV",
-    "kinetic_energy" => u"eV",
-    "mass" => u"eV",
-    "higher_order_energy_spread" => u"eV",
-    "higher_order_energy" => u"eV",
-    
+    "energy"                    => _EV,
+    "kinetic_energy"            => _EV,
+    "mass"                      => _EV,
+    "higher_order_energy_spread"=> _EV,
+    "higher_order_energy"       => _EV,
+
     # Momentum
-    "px" => u"eV/c",
-    "py" => u"eV/c",
-    "pz" => u"eV/c",
-    "p" => u"eV/c",
-    "pr" => u"eV/c",
-    "ptheta" => u"eV/c",
-    
+    "px"     => _PC,
+    "py"     => _PC,
+    "pz"     => _PC,
+    "p"      => _PC,
+    "pr"     => _PC,
+    "ptheta" => _PC,
+
     # Position
-    "x" => u"m",
-    "y" => u"m",
-    "z" => u"m",
-    "r" => u"m",
-    "Jx" => u"m",
-    "Jy" => u"m",
-    
-    # Dimensionless quantities
-    "beta" => NoUnits,
-    "beta_x" => NoUnits,
-    "beta_y" => NoUnits,
-    "beta_z" => NoUnits,
-    "gamma" => NoUnits,
-    "bunching" => NoUnits,
-    
+    "x"  => _M,
+    "y"  => _M,
+    "z"  => _M,
+    "r"  => _M,
+    "Jx" => _M,
+    "Jy" => _M,
+
+    # Dimensionless
+    "beta"    => _DL,
+    "beta_x"  => _DL,
+    "beta_y"  => _DL,
+    "beta_z"  => _DL,
+    "gamma"   => _DL,
+    "bunching" => _DL,
+
     # Angles
-    "theta" => u"rad",
-    "bunching_phase" => u"rad",
-    
+    "theta"          => _RAD,
+    "bunching_phase" => _RAD,
+
     # Charge
-    "charge" => u"C",
-    "species_charge" => u"C",
-    "weight" => u"C",
-    "average_current" => u"A",
-    
+    "charge"          => _COUL,
+    "species_charge"  => _COUL,
+    "weight"          => _COUL,
+    "average_current" => _AMP,
+
     # Emittance
-    "norm_emit_x" => u"m",
-    "norm_emit_y" => u"m",
-    "norm_emit_4d" => u"m^2",
-    
+    "norm_emit_x"  => _M,
+    "norm_emit_y"  => _M,
+    "norm_emit_4d" => power_unit(_M, 2),
+
     # Angular momentum
-    "Lz" => u"m*eV/c",
-    
+    "Lz" => _M * _PC,
+
     # Angles
-    "xp" => u"rad",
-    "yp" => u"rad",
+    "xp" => _RAD,
+    "yp" => _RAD,
 
     # Normalized coordinates
-    "x_bar" => u"m^(1/2)",
-    "px_bar" => u"m^(1/2)",
-    "y_bar" => u"m^(1/2)",
-    "py_bar" => u"m^(1/2)"
+    "x_bar"  => sqrt_unit(_M),
+    "px_bar" => sqrt_unit(_M),
+    "y_bar"  => sqrt_unit(_M),
+    "py_bar" => sqrt_unit(_M),
 )
 
-# Add field components
+# Field components
 for component in ["", "x", "y", "z", "theta", "r"]
-    PARTICLEGROUP_UNITS["E$(component)"] = u"V/m"
-    PARTICLEGROUP_UNITS["B$(component)"] = u"T"
+    PARTICLEGROUP_UNITS["E$(component)"] = _VM
+    PARTICLEGROUP_UNITS["B$(component)"] = _T
 end
 
-# Add Twiss parameters
+# Twiss parameters
 for plane in ("x", "y")
-    PARTICLEGROUP_UNITS["twiss_alpha_$(plane)"] = NoUnits
-    PARTICLEGROUP_UNITS["twiss_etap_$(plane)"] = NoUnits
-    PARTICLEGROUP_UNITS["twiss_beta_$(plane)"] = u"m"
-    PARTICLEGROUP_UNITS["twiss_eta_$(plane)"] = u"m"
-    PARTICLEGROUP_UNITS["twiss_emit_$(plane)"] = u"m"
-    PARTICLEGROUP_UNITS["twiss_norm_emit_$(plane)"] = u"m"
-    PARTICLEGROUP_UNITS["twiss_gamma_$(plane)"] = u"m^-1"
+    PARTICLEGROUP_UNITS["twiss_alpha_$(plane)"]     = _DL
+    PARTICLEGROUP_UNITS["twiss_etap_$(plane)"]      = _DL
+    PARTICLEGROUP_UNITS["twiss_beta_$(plane)"]      = _M
+    PARTICLEGROUP_UNITS["twiss_eta_$(plane)"]       = _M
+    PARTICLEGROUP_UNITS["twiss_emit_$(plane)"]      = _M
+    PARTICLEGROUP_UNITS["twiss_norm_emit_$(plane)"] = _M
+    PARTICLEGROUP_UNITS["twiss_gamma_$(plane)"]     = power_unit(_M, -1)
 end
 
 """
-    pg_units(key::String) -> Unitful.FreeUnits
+    pg_units(key::String) -> PMDUnit
 
-Returns the unit for any attribute in a ParticleGroup.
-
-# Arguments
-- `key::String`: The attribute key to get the unit for
-
-# Returns
-- `Unitful.FreeUnits`: The unit for the attribute
-
-# Throws
-- `ErrorException`: If no unit is known for the key
+Return the unit for any attribute in a ParticleGroup.
 """
 function pg_units(key::String)
-    # Basic cases
-    if haskey(PARTICLEGROUP_UNITS, key)
-        return PARTICLEGROUP_UNITS[key]
-    end
+    haskey(PARTICLEGROUP_UNITS, key) && return PARTICLEGROUP_UNITS[key]
 
-    # Operators
+    # Operators: sigma_, mean_, min_, max_, ptp_, delta_
     for prefix in ["sigma_", "mean_", "min_", "max_", "ptp_", "delta_"]
         if startswith(key, prefix)
-            nkey = key[length(prefix)+1:end]
-            return pg_units(nkey)
+            return pg_units(key[length(prefix)+1:end])
         end
     end
 
@@ -611,24 +609,14 @@ function pg_units(key::String)
     if startswith(key, "cov_")
         subkeys = split(key[5:end], "__")
         length(subkeys) == 2 || error("Invalid covariance key format: $key")
-        unit0 = PARTICLEGROUP_UNITS[subkeys[1]]
-        unit1 = PARTICLEGROUP_UNITS[subkeys[2]]
-        return unit0 * unit1
+        return PARTICLEGROUP_UNITS[subkeys[1]] * PARTICLEGROUP_UNITS[subkeys[2]]
     end
 
     # Fields
-    if startswith(key, "electricField")
-        return u"V/m"
-    end
-    if startswith(key, "magneticField")
-        return u"T"
-    end
-    if startswith(key, "bunching_phase")
-        return u"rad"
-    end
-    if startswith(key, "bunching")
-        return NoUnits
-    end
+    startswith(key, "electricField") && return _VM
+    startswith(key, "magneticField") && return _T
+    startswith(key, "bunching_phase") && return _RAD
+    startswith(key, "bunching") && return _DL
 
     error("No known unit for: $key")
 end

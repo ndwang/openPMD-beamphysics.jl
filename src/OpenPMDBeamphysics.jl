@@ -6,8 +6,6 @@ using Plots
 using StatsBase: weights, fit, Histogram
 using LinearAlgebra: det
 using AtomicAndPhysicalConstants: Species, massof, chargeof, C_LIGHT, E_CHARGE
-using Unitful
-using Unitful.DefaultSymbols
 import Statistics
 import Statistics: mean, std
 import StatsBase
@@ -52,7 +50,7 @@ export pmd_init, pmd_field_init, write_component_data, write_pmd_bunch, write_pm
 export particle_data_dict, write_particle_group
 
 # Units & display
-export nice_scale_prefix, nice_array, pg_units, limits, plottable_array
+export PMDUnit, nice_scale_prefix, nice_array, pg_units, limits, plottable_array
 export mathlabel, texlabel
 
 # Plotting
