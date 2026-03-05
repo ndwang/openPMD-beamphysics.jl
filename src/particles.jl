@@ -81,7 +81,17 @@ end
 
 Base.view(pg::AbstractParticleGroup, Iinds) = ParticleGroupView(pg, Iinds)
 
-# Constructor for single particle
+"""
+    single_particle(; x=0, px=0, y=0, py=0, z=0, pz=0, t=0, weight=1, status=1, species=Species("electron"))
+
+Construct a `ParticleGroup` containing a single particle. All keyword arguments
+are optional and default to zero (or 1 for `weight` and `status`).
+
+# Example
+```julia
+pg = single_particle(z=0.01, pz=1e6)
+```
+"""
 function single_particle(;
     x=0.0, px=0.0, y=0.0, py=0.0, z=0.0, pz=0.0,
     t=0.0, weight=1.0, status=1, species=Species("electron")
@@ -479,7 +489,12 @@ end
 """
     ParticleGroup(h5::HDF5.Group)
 
-Load particles into a ParticleGroup from an HDF5 file in openPMD format.
+Load a `ParticleGroup` from an open HDF5 group in openPMD-beamphysics format.
+The group may point directly to a species subgroup or to a path containing
+exactly one species. Particle coordinates are converted to SI units (positions
+in m, momenta in eV/c, time in s).
+
+See also [`ParticleGroup(file::String)`](@ref).
 """
 function ParticleGroup(h5::HDF5.Group)
 
