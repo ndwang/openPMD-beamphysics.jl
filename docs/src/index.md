@@ -1,7 +1,7 @@
 # BeamPhysics.jl
 
 A Julia package for working with beam physics data in the
-[openPMD-beamphysics](https://github.com/openPMD/openPMD-beamphysics) format.
+[openPMD-beamphysics](https://github.com/openPMD/openPMD-standard/blob/upcoming-2.0.0/EXT_BeamPhysics.md) format.
 
 ## Features
 
