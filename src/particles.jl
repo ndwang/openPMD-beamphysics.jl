@@ -136,42 +136,6 @@ py_bar(pg::AbstractParticleGroup) = normalized_particle_coordinate(pg, "py")
 Jx(pg::AbstractParticleGroup) = hypot.(x_bar(pg), px_bar(pg))
 Jy(pg::AbstractParticleGroup) = hypot.(y_bar(pg), py_bar(pg))
 
-# ---- DERIVED_PROPERTIES dict for getindex resolution ----
-
-const DERIVED_PROPERTIES = Dict{String, Any}(
-    "n_particle"     => pg -> length(pg),
-    "n_alive"        => pg -> nalive(pg),
-    "n_dead"         => pg -> ndead(pg),
-    "mass"           => pg -> mass(pg),
-    "species_charge" => pg -> species_charge(pg),
-    "charge"         => pg -> charge(pg),
-    "p"              => pg -> momentum(pg),
-    "energy"         => pg -> energy(pg),
-    "kinetic_energy" => pg -> kinetic_energy(pg),
-    "xp"             => pg -> xp(pg),
-    "yp"             => pg -> yp(pg),
-    "r"              => pg -> r(pg),
-    "theta"          => pg -> theta(pg),
-    "pr"             => pg -> pr(pg),
-    "ptheta"         => pg -> ptheta(pg),
-    "Lz"             => pg -> Lz(pg),
-    "gamma"          => pg -> gamma(pg),
-    "beta"           => pg -> beta(pg),
-    "beta_x"         => pg -> beta_x(pg),
-    "beta_y"         => pg -> beta_y(pg),
-    "beta_z"         => pg -> beta_z(pg),
-    "norm_emit_x"    => pg -> norm_emit_x(pg),
-    "norm_emit_y"    => pg -> norm_emit_y(pg),
-    "norm_emit_4d"   => pg -> norm_emit_4d(pg),
-    "x_bar"          => pg -> x_bar(pg),
-    "px_bar"         => pg -> px_bar(pg),
-    "y_bar"          => pg -> y_bar(pg),
-    "py_bar"         => pg -> py_bar(pg),
-    "Jx"             => pg -> Jx(pg),
-    "Jy"             => pg -> Jy(pg),
-    "average_current"=> pg -> average_current(pg),
-)
-
 # ---- set_charge! ----
 
 function set_charge!(pg::AbstractParticleGroup, val)
@@ -272,6 +236,35 @@ function average_current(pg::AbstractParticleGroup)
     end
     return charge(pg) / dt
 end
+
+# ---- DERIVED_PROPERTIES dict for getindex resolution ----
+
+# Functions from statistics.jl (norm_emit_*, x_bar, etc.) are registered
+# at the bottom of statistics.jl after they are defined.
+const DERIVED_PROPERTIES = Dict{String, Function}(
+    "n_particle"     => length,
+    "n_alive"        => nalive,
+    "n_dead"         => ndead,
+    "mass"           => mass,
+    "species_charge" => species_charge,
+    "charge"         => charge,
+    "p"              => momentum,
+    "energy"         => energy,
+    "kinetic_energy" => kinetic_energy,
+    "xp"             => xp,
+    "yp"             => yp,
+    "r"              => r,
+    "theta"          => theta,
+    "pr"             => pr,
+    "ptheta"         => ptheta,
+    "Lz"             => Lz,
+    "gamma"          => gamma,
+    "beta"           => beta,
+    "beta_x"         => beta_x,
+    "beta_y"         => beta_y,
+    "beta_z"         => beta_z,
+    "average_current"=> average_current,
+)
 
 # ---- Drift methods ----
 

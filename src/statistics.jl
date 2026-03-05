@@ -300,3 +300,14 @@ function slice_statistics(particle_group; keys=["mean_z"], n_slice=40, slice_key
 
     return statistics
 end
+
+# Register statistics-dependent functions in DERIVED_PROPERTIES (defined in particles.jl)
+DERIVED_PROPERTIES["norm_emit_x"]  = norm_emit_x
+DERIVED_PROPERTIES["norm_emit_y"]  = norm_emit_y
+DERIVED_PROPERTIES["norm_emit_4d"] = norm_emit_4d
+DERIVED_PROPERTIES["x_bar"]       = x_bar
+DERIVED_PROPERTIES["px_bar"]      = px_bar
+DERIVED_PROPERTIES["y_bar"]       = y_bar
+DERIVED_PROPERTIES["py_bar"]      = py_bar
+DERIVED_PROPERTIES["Jx"]          = Jx
+DERIVED_PROPERTIES["Jy"]          = Jy
