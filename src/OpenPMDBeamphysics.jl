@@ -13,6 +13,7 @@ import StatsBase: cov
 # Include all source files in dependency order
 include("units.jl")
 include("readers.jl")
+include("fieldmesh.jl")
 include("particles.jl")
 include("statistics.jl")
 include("writers.jl")
@@ -20,6 +21,13 @@ include("labels.jl")
 
 # Export key types and constructors
 export ParticleGroup, single_particle
+export FieldMesh, write_fieldmesh
+export axis_index, mins, maxs, deltas, coord_vec, coord_vecs
+export scale, phase, factor, frequency
+export is_static, is_pure_electric, is_pure_magnetic
+export scaled_component, set_min!, set_max!
+export dx, dy, dz, dr, dtheta
+export xmin, xmax, ymin, ymax, zmin, zmax, rmin, rmax, thetamin, thetamax
 
 # Derived property functions
 export nalive, ndead, mass, species_charge, charge

@@ -8,5 +8,6 @@ using OpenPMDBeamphysics
     include("test_statistics_beamphysics.jl")
     include("test_particlegroup_view.jl")
     include("test_io_openpmd.jl")
+    include("test_fieldmesh.jl")
 end
 

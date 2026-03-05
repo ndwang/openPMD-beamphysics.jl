@@ -159,8 +159,11 @@ Parameters:
   * ("r", "theta", "z")
 """
 function component_data(h5; slice=:, unit_factor=1, axis_labels=nothing)
-    # Look for unitSI factor
+    # Look for unitSI factor (may be scalar or 1-element array in field files)
     factor = haskey(attrs(h5), "unitSI") ? attrs(h5)["unitSI"] : 1
+    if factor isa AbstractArray
+        factor = factor[1]
+    end
 
     # Additional conversion factor
     if unit_factor != 1
@@ -168,31 +171,30 @@ function component_data(h5; slice=:, unit_factor=1, axis_labels=nothing)
     end
 
     if is_constant_component(h5)
-        dat = fill(attrs(h5)["value"], Tuple(attrs(h5)["shape"]))[slice]
+        dat = fill(attrs(h5)["value"], Tuple(attrs(h5)["shape"]))
     # Check multidimensional for data ordering, convert to 'x', 'y', 'z' order
     elseif ndims(h5) > 1
         if isnothing(axis_labels)
             throw(ArgumentError("axis_labels required for multidimensional arrays"))
         end
 
+        dat = read(h5)
+
         # Define the standard order for each coordinate system
         cartesian_std = ("x", "y", "z")
         cylindrical_std = ("r", "theta", "z")
-        
+
         # Get the permutation indices to convert from current order to standard order
         if all(label in cartesian_std for label in axis_labels)
-            # Cartesian coordinates
             perm_indices = [findfirst(isequal(label), cartesian_std) for label in axis_labels]
-            dat = read(h5)[slice]
-            dat = permutedims(dat, perm_indices)
+            if perm_indices != [1, 2, 3]
+                dat = permutedims(dat, perm_indices)
+            end
         elseif all(label in cylindrical_std for label in axis_labels)
-            # Cylindrical coordinates
             perm_indices = [findfirst(isequal(label), cylindrical_std) for label in axis_labels]
-            dat = read(h5)[slice]
-            dat = permutedims(dat, perm_indices)
-        else
-            # C-order
-            dat = read(h5)[slice]
+            if perm_indices != [1, 2, 3]
+                dat = permutedims(dat, perm_indices)
+            end
         end
     else
         # 1-D array
