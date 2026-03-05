@@ -607,7 +607,7 @@ function pg_units(key::String)
 
     # Covariance
     if startswith(key, "cov_")
-        subkeys = split(key[5:end], "__")
+        subkeys = split(key[5:end], "_")
         length(subkeys) == 2 || error("Invalid covariance key format: $key")
         return PARTICLEGROUP_UNITS[subkeys[1]] * PARTICLEGROUP_UNITS[subkeys[2]]
     end

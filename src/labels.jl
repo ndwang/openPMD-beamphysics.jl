@@ -91,7 +91,7 @@ Returns a tex label from a proper attribute name.
 
 # Examples
 ```julia
-texlabel("cov_x__px")  # returns: "\\left<x, p_x\\right>"
+texlabel("cov_x_px")  # returns: "\\left<x, p_x\\right>"
 ```
 
 # Notes
@@ -128,7 +128,7 @@ function texlabel(key::AbstractString)
     end
 
     if startswith(key, "cov_")
-        subkeys = split(key[5:end], "__")
+        subkeys = split(key[5:end], "_")
         tex0 = texlabel(subkeys[1])
         tex1 = texlabel(subkeys[2])
         return "\\left<$tex0, $tex1\\right>"

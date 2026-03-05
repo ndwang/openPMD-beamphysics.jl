@@ -338,7 +338,7 @@ Returns a property or statistical quantity that can be computed:
 - `P["x"]` returns the x array
 - `P["sigma_x"]` returns the std(x) scalar
 - `P["norm_emit_x"]` returns the norm_emit_x scalar
-- `P["cov_x__px"]` returns the covariance of x and px
+- `P["cov_x_px"]` returns the covariance of x and px
 
 Parts can also be given. Example: `P[1:10]` returns a new ParticleGroup with the first 10 elements.
 For a ParticleGroup, integer/range indexing returns a new ParticleGroup (copy).
@@ -355,7 +355,7 @@ function Base.getindex(pg::AbstractParticleGroup, x)
     end
 
     if startswith(x, "cov_")
-        subkeys = split(x[5:end], "__")
+        subkeys = split(x[5:end], "_")
         @assert length(subkeys) == 2 "Need 2 properties in covariance request: $x"
         return StatsBase.cov(pg, subkeys...)[1, 2]
     elseif startswith(x, "delta_")
