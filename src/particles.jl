@@ -1,42 +1,46 @@
 """
-    ParticleGroup{T<:Real}
+    ParticleGroup{T, I, AT, AI, AId}
 
 Represents a collection of particles with their properties and methods for analysis.
+Array fields are parameterized so they can be `Vector`, `CuArray`, or any `AbstractVector`.
 
 # Fields
-- `x,y,z::Vector{T}`: positions in [m]
-- `px,py,pz::Vector{T}`: momenta in [eV/c]
-- `t::Vector{T}`: time in [s]
-- `status::Vector{Int}`: particle status (1 for alive, 0 for dead)
-- `weight::Vector{T}`: macro-particle charge in [C]
+- `x,y,z::AT`: positions in [m]
+- `px,py,pz::AT`: momenta in [eV/c]
+- `t::AT`: time in [s]
+- `status::AI`: particle status (1 for alive, 0 for dead)
+- `weight::AT`: macro-particle charge in [C]
 - `species::Species`: particle species
-- `id::Vector{Int}`: optional particle IDs
+- `id::AId`: optional particle IDs
 """
 
 abstract type AbstractParticleGroup{T<:Real, I<:Integer} end
 
-struct ParticleGroup{T<:Real, I<:Integer} <: AbstractParticleGroup{T,I}
-    x::Vector{T}
-    px::Vector{T}
-    y::Vector{T}
-    py::Vector{T}
-    z::Vector{T}
-    pz::Vector{T}
-    t::Vector{T}
-    status::Vector{I}
-    weight::Vector{T}
+struct ParticleGroup{T<:Real, I<:Integer,
+                     AT<:AbstractVector{T},
+                     AI<:AbstractVector{I},
+                     AId<:AbstractVector{Int}} <: AbstractParticleGroup{T,I}
+    x::AT
+    px::AT
+    y::AT
+    py::AT
+    z::AT
+    pz::AT
+    t::AT
+    status::AI
+    weight::AT
     species::Species
-    id::Vector{Int}
+    id::AId
 end
 
-# Constructor with optional id
+# Constructor with auto-generated ids
 function ParticleGroup(
-    x::Vector{T}, px::Vector{T}, y::Vector{T}, py::Vector{T},
-    z::Vector{T}, pz::Vector{T}, t::Vector{T}, status::Vector{I},
-    weight::Vector{T}, species::Species
-) where {T<:Real, I<:Integer}
+    x::AT, px::AT, y::AT, py::AT,
+    z::AT, pz::AT, t::AT, status::AI,
+    weight::AT, species::Species
+) where {T<:Real, I<:Integer, AT<:AbstractVector{T}, AI<:AbstractVector{I}}
     n = length(x)
-    id = collect(Int,1:n)
+    id = collect(Int, 1:n)
     return ParticleGroup(x, px, y, py, z, pz, t, status, weight, species, id)
 end
 
@@ -159,6 +163,22 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", pg::ParticleGroupView)
     print(io, "ParticleGroupView with $(length(pg)) particles (charge = $(charge(pg)) C)")
+end
+
+# ---- copy ----
+
+"""
+    copy(pg::AbstractParticleGroup)
+
+Return a new `ParticleGroup` with copied arrays. Useful for preserving state
+before in-place operations like `drift!`.
+"""
+function Base.copy(pg::AbstractParticleGroup)
+    return ParticleGroup(
+        copy(pg.x), copy(pg.px), copy(pg.y), copy(pg.py),
+        copy(pg.z), copy(pg.pz), copy(pg.t), copy(pg.status),
+        copy(pg.weight), pg.species, copy(pg.id)
+    )
 end
 
 # ---- Statistics: proper Base/Statistics extensions ----
@@ -414,24 +434,22 @@ function split_particles(pg::AbstractParticleGroup; n_chunks=100, key="z")
     n < n_chunks && throw(ArgumentError("Cannot split $n particles into $n_chunks chunks"))
 
     edges = round.(Int, range(1, n + 1, length=n_chunks + 1))
-    plist = Vector{ParticleGroup}(undef, n_chunks)
-    for i in 1:n_chunks
+    plist = map(1:n_chunks) do i
         chunk = iz[edges[i]:edges[i+1]-1]
-        plist[i] = ParticleGroup(
+        ParticleGroup(
             pg.x[chunk], pg.px[chunk], pg.y[chunk], pg.py[chunk],
             pg.z[chunk], pg.pz[chunk], pg.t[chunk], pg.status[chunk],
             pg.weight[chunk], pg.species, pg.id[chunk]
         )
     end
-
     return plist
 end
 
-function particle_parts(pg::ParticleGroup, x)
+function particle_parts(pg::ParticleGroup, idx)
     return ParticleGroup(
-        pg.x[x], pg.px[x], pg.y[x], pg.py[x],
-        pg.z[x], pg.pz[x], pg.t[x], pg.status[x],
-        pg.weight[x], pg.species, pg.id[x]
+        pg.x[idx], pg.px[idx], pg.y[idx], pg.py[idx],
+        pg.z[idx], pg.pz[idx], pg.t[idx], pg.status[idx],
+        pg.weight[idx], pg.species, pg.id[idx]
     )
 end
 
