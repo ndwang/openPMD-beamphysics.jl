@@ -6,6 +6,8 @@ using OpenPMDBeamphysics: pg_units, plottable_array, nice_array, nice_scale_pref
     mathlabel, ptp, limits, in_t_coordinates, slice_statistics
 
 import OpenPMDBeamphysics: slice_plot, density_plot, marginal_plot, density_and_slice_plot
+import OpenPMDBeamphysics: fieldmesh_plot, fieldmesh_plot_onaxis
+import OpenPMDBeamphysics: FieldMesh, coord_vec, mins, maxs, is_pure_magnetic, is_static, pg_units, nice_array
 
 using StatsBase: weights, fit, Histogram
 import StatsBase
@@ -406,6 +408,206 @@ function density_and_slice_plot(particle_group, key1="t", key2="p"; stat_keys=["
     y2 = slice_dat["density"]
     y2 = y2 .* max2 ./ maximum(y2) ./ f3 ./ 2
     plot!(p2, x2, y2, fillrange=0, fillalpha=0.2, color=:gray, w=0)
+    return p
+end
+
+
+# ── FieldMesh plotting ─────────────────────────────────────────────────────
+
+"""
+    fieldmesh_plot(fm::FieldMesh; component=nothing, mirror=false, cmap=:plasma, kwargs...)
+
+2D heatmap of a FieldMesh field component.
+
+For cylindrical geometry, plots the (r, z) plane at theta=0. Z is on the x-axis,
+r on the y-axis (convention for accelerators).
+
+For rectangular geometry, plots the (x, z) plane at y=0 by default. Pass `y=value`
+to select a different slice value.
+
+# Arguments
+- `component`: Field component to plot (e.g. `"Bz"`, `"B"`, `"Ez"`).
+  Defaults to `"B"` for pure magnetic, `"E"` otherwise.
+- `mirror`: For cylindrical only. If `true`, mirrors data to show negative-r side.
+  `Br` and `Er` components are sign-flipped on the mirrored side.
+- `cmap`: Colormap (default `:plasma`)
+- `kwargs...`: Forwarded to `Plots.heatmap`
+
+# Returns
+`Plots.Plot`
+"""
+function fieldmesh_plot(fm::FieldMesh;
+    component::Union{String, Nothing} = nothing,
+    mirror::Bool = false,
+    cmap = :plasma,
+    kwargs...
+)
+    if isnothing(component)
+        component = is_pure_magnetic(fm) ? "B" : "E"
+    end
+
+    if fm.geometry == "cylindrical"
+        return _fieldmesh_plot_cylindrical(fm, component; mirror=mirror, cmap=cmap, kwargs...)
+    elseif fm.geometry == "rectangular"
+        return _fieldmesh_plot_rectangular(fm, component; cmap=cmap, kwargs...)
+    else
+        throw(ArgumentError("Unsupported geometry: $(fm.geometry)"))
+    end
+end
+
+function _fieldmesh_plot_cylindrical(fm::FieldMesh, component::String;
+    mirror::Bool = false, cmap = :plasma, kwargs...)
+
+    r = coord_vec(fm, "r")
+    z = coord_vec(fm, "z")
+
+    dat = real.(fm[component][:, 1, :])   # shape (nr, nz), real part for display
+
+    if mirror
+        if r[1] != 0.0
+            throw(ArgumentError("mirror=true only available when r=0 is at grid origin"))
+        end
+        # Sign convention: radial components flip sign, axial/magnitude do not
+        sign = (component in ("Br", "Er")) ? -1 : 1
+        dat = vcat(sign .* reverse(dat; dims=1), dat)
+        r = vcat(-reverse(r), r)
+    end
+
+    u = pg_units(component)
+    dat_scaled, fac, prefix = nice_array(dat)
+    clabel = mathlabel(component; units=prefix * string(u))
+    xlabel = "\$z\$ (m)"
+    ylabel = "\$r\$ (m)"
+
+    return heatmap(z, r, dat_scaled;
+        xlabel=xlabel, ylabel=ylabel, colorbar_title=clabel,
+        color=cmap, kwargs...)
+end
+
+function _fieldmesh_plot_rectangular(fm::FieldMesh, component::String;
+    cmap = :plasma, kwargs...)
+
+    # Pop slice coordinate from kwargs; default to y=0
+    kw = Dict(kwargs)
+    slice_axis, slice_val = "y", 0.0
+    for ax in fm.axis_labels
+        if haskey(kw, Symbol(ax))
+            slice_axis = ax
+            slice_val = Float64(pop!(kw, Symbol(ax)))
+            break
+        end
+    end
+
+    x = coord_vec(fm, "x")
+    y = coord_vec(fm, "y")
+    z = coord_vec(fm, "z")
+
+    dat3d = real.(fm[component])   # (nx, ny, nz)
+
+    if slice_axis == "y"
+        iy = argmin(abs.(y .- slice_val))
+        dat = dat3d[:, iy, :]      # (nx, nz)
+        hax, vax = z, x
+        xlabel, ylabel = "\$z\$ (m)", "\$x\$ (m)"
+    elseif slice_axis == "x"
+        ix = argmin(abs.(x .- slice_val))
+        dat = dat3d[ix, :, :]      # (ny, nz)
+        hax, vax = z, y
+        xlabel, ylabel = "\$z\$ (m)", "\$y\$ (m)"
+    else  # z
+        iz = argmin(abs.(z .- slice_val))
+        dat = dat3d[:, :, iz]      # (nx, ny)
+        hax, vax = x, y
+        xlabel, ylabel = "\$x\$ (m)", "\$y\$ (m)"
+    end
+
+    u = pg_units(component)
+    dat_scaled, fac, prefix = nice_array(dat)
+    clabel = mathlabel(component; units=prefix * string(u))
+
+    return heatmap(hax, vax, dat_scaled;
+        xlabel=xlabel, ylabel=ylabel, colorbar_title=clabel,
+        color=cmap, kw...)
+end
+
+"""
+    fieldmesh_plot_onaxis(fm::FieldMesh; kwargs...)
+
+1D on-axis field plot for a FieldMesh.
+
+For cylindrical geometry, plots `Bz` and/or `Ez` at r=0.
+For rectangular geometry, plots all present field components along z at x=y=0.
+
+# Arguments
+- `kwargs...`: Forwarded to `Plots.plot`
+
+# Returns
+`Plots.Plot`
+"""
+function fieldmesh_plot_onaxis(fm::FieldMesh; kwargs...)
+    if fm.geometry == "cylindrical"
+        return _fieldmesh_onaxis_cylindrical(fm; kwargs...)
+    elseif fm.geometry == "rectangular"
+        return _fieldmesh_onaxis_rectangular(fm; kwargs...)
+    else
+        throw(ArgumentError("Unsupported geometry: $(fm.geometry)"))
+    end
+end
+
+function _fieldmesh_onaxis_cylindrical(fm::FieldMesh; kwargs...)
+    z = coord_vec(fm, "z")
+    has_Ez = haskey(fm.components, "electricField/z")
+    has_Bz = haskey(fm.components, "magneticField/z")
+
+    p = plot(; xlabel="\$z\$ (m)", kwargs...)
+
+    if has_Ez
+        Ez0 = fm["Ez"][1, 1, :]
+        Ez_scaled, fac, prefix = nice_array(Ez0)
+        plot!(p, z, Ez_scaled;
+            label=mathlabel("Ez"; units=prefix * string(pg_units("Ez"))),
+            color=:black)
+    end
+    if has_Bz
+        Bz0 = fm["Bz"][1, 1, :]
+        Bz_scaled, fac, prefix = nice_array(Bz0)
+        if has_Ez
+            p2 = twinx(p)
+            plot!(p2, z, Bz_scaled;
+                label=mathlabel("Bz"; units=prefix * string(pg_units("Bz"))),
+                color=:blue, ylabel=mathlabel("Bz"; units=prefix * string(pg_units("Bz"))))
+        else
+            plot!(p, z, Bz_scaled;
+                label=mathlabel("Bz"; units=prefix * string(pg_units("Bz"))),
+                color=:blue,
+                ylabel=mathlabel("Bz"; units=prefix * string(pg_units("Bz"))))
+        end
+    end
+
+    return p
+end
+
+function _fieldmesh_onaxis_rectangular(fm::FieldMesh; kwargs...)
+    z = coord_vec(fm, "z")
+    x = coord_vec(fm, "x")
+    y = coord_vec(fm, "y")
+    ix = argmin(abs.(x))
+    iy = argmin(abs.(y))
+
+    p = plot(; xlabel="\$z\$ (m)", kwargs...)
+
+    field_keys = [("electricField/x", "Ex"), ("electricField/y", "Ey"), ("electricField/z", "Ez"),
+                  ("magneticField/x", "Bx"), ("magneticField/y", "By"), ("magneticField/z", "Bz")]
+
+    for (comp, alias) in field_keys
+        haskey(fm.components, comp) || continue
+        fdat = fm[alias][ix, iy, :]
+        all(iszero, fdat) && continue
+        f_scaled, fac, prefix = nice_array(fdat)
+        plot!(p, z, f_scaled;
+            label=mathlabel(alias; units=prefix * string(pg_units(alias))))
+    end
+
     return p
 end
 

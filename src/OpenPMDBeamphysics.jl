@@ -18,6 +18,7 @@ include("particles.jl")
 include("statistics.jl")
 include("writers.jl")
 include("labels.jl")
+include("plotting.jl")
 
 # Export key types and constructors
 export ParticleGroup, single_particle
@@ -61,5 +62,6 @@ export mathlabel, texlabel
 
 # Plotting
 export slice_plot, density_plot, marginal_plot, density_and_slice_plot
+export fieldmesh_plot, fieldmesh_plot_onaxis
 
 end # module OpenPMDBeamphysics
