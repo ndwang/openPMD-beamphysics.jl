@@ -1,4 +1,4 @@
-using OpenPMDBeamphysics
+using BeamPhysics
 using Test
 
 const FIELDMESH_FILE = joinpath(@__DIR__, "lcls2_solenoid_fieldmesh.h5")

@@ -1,14 +1,14 @@
 using Documenter
-using OpenPMDBeamphysics
+using BeamPhysics
 using HDF5
 using Plots
 
-const PlotsExt = Base.get_extension(OpenPMDBeamphysics, :OpenPMDBeamphysicsPlotsExt)
+const PlotsExt = Base.get_extension(BeamPhysics, :BeamPhysicsPlotsExt)
 
 makedocs(
-    sitename = "OpenPMDBeamphysics.jl",
+    sitename = "BeamPhysics.jl",
     authors = "ndwang and contributors",
-    modules = [OpenPMDBeamphysics, PlotsExt],
+    modules = [BeamPhysics, PlotsExt],
     format = Documenter.HTML(
         prettyurls = get(ENV, "CI", nothing) == "true",
         canonical = "https://ndwang.github.io/openPMD-beamphysics",

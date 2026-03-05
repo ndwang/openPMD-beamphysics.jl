@@ -1,4 +1,4 @@
-# OpenPMDBeamphysics.jl
+# BeamPhysics.jl
 
 A Julia package for working with beam physics data in the
 [openPMD-beamphysics](https://github.com/openPMD/openPMD-beamphysics) format.
@@ -15,13 +15,13 @@ A Julia package for working with beam physics data in the
 
 ```julia
 using Pkg
-Pkg.add("OpenPMDBeamphysics")
+Pkg.add("BeamPhysics")
 ```
 
 ## Quick Start
 
 ```julia
-using OpenPMDBeamphysics
+using BeamPhysics
 
 # Load particles from an openPMD HDF5 file
 pg = ParticleGroup("particles.h5")

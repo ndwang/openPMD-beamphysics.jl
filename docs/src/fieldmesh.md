@@ -11,7 +11,7 @@ See [`FieldMesh`](@ref) in the [API Reference](@ref api) for full details.
 ## Loading and Saving
 
 ```julia
-using OpenPMDBeamphysics
+using BeamPhysics
 
 # Load from file (must contain exactly one field path)
 fm = FieldMesh("solenoid.h5")

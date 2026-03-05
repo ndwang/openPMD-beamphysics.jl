@@ -1,7 +1,7 @@
 """
 Stub definitions for plotting functions.
 
-Implementations are in ext/OpenPMDBeamphysicsPlotsExt.jl,
+Implementations are in ext/BeamPhysicsPlotsExt.jl,
 loaded when Plots is available.
 """
 

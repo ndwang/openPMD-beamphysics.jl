@@ -1,7 +1,7 @@
-# OpenPMDBeamphysics.jl
+# BeamPhysics.jl
 
 A Julia package for beam physics analysis following the
-[openPMD-beamphysics](https://github.com/openPMD/openPMD-beamphysics) standard.
+[openPMD-beamphysics](https://github.com/openPMD/openPMD-standard/blob/upcoming-2.0.0/EXT_BeamPhysics.md) standard.
 Adapted from the Python implementation by Christopher Mayes.
 
 ## Installation
@@ -14,7 +14,7 @@ Pkg.add(url="https://github.com/ndwang/openPMD-beamphysics.jl")
 ## Quick Start
 
 ```julia
-using OpenPMDBeamphysics
+using BeamPhysics
 
 pg = ParticleGroup("particles.h5")
 pg["sigma_x"]       # weighted std of x [m]

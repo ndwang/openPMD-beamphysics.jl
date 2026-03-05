@@ -1,13 +1,13 @@
-module OpenPMDBeamphysicsPlotsExt
+module BeamPhysicsPlotsExt
 
 using Plots
-using OpenPMDBeamphysics
-using OpenPMDBeamphysics: pg_units, plottable_array, nice_array, nice_scale_prefix,
+using BeamPhysics
+using BeamPhysics: pg_units, plottable_array, nice_array, nice_scale_prefix,
     mathlabel, ptp, limits, in_t_coordinates, slice_statistics
 
-import OpenPMDBeamphysics: slice_plot, density_plot, marginal_plot, density_and_slice_plot
-import OpenPMDBeamphysics: fieldmesh_plot, fieldmesh_plot_onaxis
-import OpenPMDBeamphysics: FieldMesh, coord_vec, mins, maxs, is_pure_magnetic, is_static, pg_units, nice_array
+import BeamPhysics: slice_plot, density_plot, marginal_plot, density_and_slice_plot
+import BeamPhysics: fieldmesh_plot, fieldmesh_plot_onaxis
+import BeamPhysics: FieldMesh, coord_vec, mins, maxs, is_pure_magnetic, is_static, pg_units, nice_array
 
 using StatsBase: weights, fit, Histogram
 import StatsBase

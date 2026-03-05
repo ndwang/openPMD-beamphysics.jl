@@ -2,7 +2,7 @@
 
 julia_version = "1.11.7"
 manifest_format = "2.0"
-project_hash = "bd78d1187b4a036c0d45b4e516d8e2ee551b51a4"
+project_hash = "bf18f9491dbaf0964ecca38364726291050392a5"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -36,6 +36,16 @@ version = "0.8.2"
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 version = "1.11.0"
+
+[[deps.BeamPhysics]]
+deps = ["AtomicAndPhysicalConstants", "HDF5", "LinearAlgebra", "Statistics", "StatsBase"]
+path = "C:\\Users\\wdong\\.julia\\openPMD-beamphysics\\openPMD_beamphysics"
+uuid = "f85cbb92-938a-4877-a34b-92f8b55ab56a"
+version = "0.1.0"
+weakdeps = ["Plots"]
+
+    [deps.BeamPhysics.extensions]
+    BeamPhysicsPlotsExt = "Plots"
 
 [[deps.BitFlags]]
 git-tree-sha1 = "0691e34b3bb8be9307330f88d1a3c3f25466c24d"
@@ -634,16 +644,6 @@ deps = ["Artifacts", "CompilerSupportLibraries_jll", "Hwloc_jll", "JLLWrappers",
 git-tree-sha1 = "2f3d05e419b6125ffe06e55784102e99325bdbe2"
 uuid = "fe0851c0-eecd-5654-98d4-656369965a5c"
 version = "5.0.10+0"
-
-[[deps.OpenPMDBeamphysics]]
-deps = ["AtomicAndPhysicalConstants", "HDF5", "LinearAlgebra", "Statistics", "StatsBase"]
-path = "C:\\Users\\wdong\\.julia\\openPMD-beamphysics\\openPMD_beamphysics"
-uuid = "f85cbb92-938a-4877-a34b-92f8b55ab56a"
-version = "0.1.0"
-weakdeps = ["Plots"]
-
-    [deps.OpenPMDBeamphysics.extensions]
-    OpenPMDBeamphysicsPlotsExt = "Plots"
 
 [[deps.OpenSSH_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "OpenSSL_jll", "Zlib_jll"]

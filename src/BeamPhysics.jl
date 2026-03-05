@@ -1,4 +1,4 @@
-module OpenPMDBeamphysics
+module BeamPhysics
 
 # External dependencies
 using HDF5
@@ -64,4 +64,4 @@ export mathlabel, texlabel
 export slice_plot, density_plot, marginal_plot, density_and_slice_plot
 export fieldmesh_plot, fieldmesh_plot_onaxis
 
-end # module OpenPMDBeamphysics
+end # module BeamPhysics

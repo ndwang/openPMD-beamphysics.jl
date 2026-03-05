@@ -6,7 +6,7 @@ Plotting functionality is available as a package extension when
 ## Setup
 
 ```julia
-using OpenPMDBeamphysics
+using BeamPhysics
 using Plots
 ```
 

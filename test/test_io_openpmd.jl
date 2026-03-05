@@ -1,6 +1,6 @@
 using HDF5
 using AtomicAndPhysicalConstants: Species, C_LIGHT, E_CHARGE
-import OpenPMDBeamphysics:
+import BeamPhysics:
     pmd_init, pmd_field_init,
     write_component_data, write_pmd_bunch, write_pmd_field,
     particle_data_dict, write_particle_group,

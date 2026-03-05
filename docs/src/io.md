@@ -8,7 +8,7 @@ This package reads and writes files in the
 ## Reading Particles
 
 ```julia
-using OpenPMDBeamphysics
+using BeamPhysics
 
 # Load particles (file must contain exactly one particle path)
 pg = ParticleGroup("particles.h5")

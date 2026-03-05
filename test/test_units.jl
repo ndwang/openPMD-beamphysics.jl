@@ -1,5 +1,5 @@
 using AtomicAndPhysicalConstants: C_LIGHT, E_CHARGE
-import OpenPMDBeamphysics:
+import BeamPhysics:
     KNOWN_UNIT, DIMENSION, DIMENSION_NAME, SI_SYMBOL, SI_NAME,
     PARTICLEGROUP_UNITS, NAMED_UNITS,
     power_unit, sqrt_unit, is_dimensionless, is_identity,

@@ -1,7 +1,7 @@
 using Test
-using OpenPMDBeamphysics
+using BeamPhysics
 
-@testset "OpenPMDBeamphysics" begin
+@testset "BeamPhysics" begin
     include("test_units.jl")
     include("test_particlegroup_construction.jl")
     include("test_property_access.jl")

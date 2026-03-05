@@ -4,7 +4,7 @@ import Statistics
 import Statistics: mean as _mean
 import StatsBase
 import StatsBase: weights
-import OpenPMDBeamphysics:
+import BeamPhysics:
     norm_emit_calc, twiss_calc, twiss_dispersion,
     A_mat_calc, A_inverse_mat_calc, amplitude_calc,
     particle_amplitude, normalized_particle_coordinate,

@@ -11,7 +11,7 @@ See [`ParticleGroup`](@ref) in the [API Reference](@ref api) for the full type d
 ## Creating a ParticleGroup
 
 ```julia
-using OpenPMDBeamphysics
+using BeamPhysics
 
 # Load from an openPMD HDF5 file
 pg = ParticleGroup("particles.h5")
