@@ -29,6 +29,6 @@ makedocs(
 )
 
 deploydocs(
-    repo = "github.com/ndwang/openPMD-beamphysics.git",
+    repo = "github.com/ndwang/openPMD-beamphysics.jl.git",
     devbranch = "main",
 )

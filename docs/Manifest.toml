@@ -29,7 +29,7 @@ uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 version = "1.11.0"
 
 [[deps.AtomicAndPhysicalConstants]]
-path = "../../../AtomicAndPhysicalConstants.jl"
+git-tree-sha1 = "1b65be9932c3c65128919fb2286084701247ccfc"
 uuid = "5c0d271c-5419-4163-b387-496237733d8b"
 version = "0.8.2"
 
