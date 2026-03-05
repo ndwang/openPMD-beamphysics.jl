@@ -1,6 +1,15 @@
-"""
-Plotting utilities for particle and field data visualization.
-"""
+module OpenPMDBeamphysicsPlotsExt
+
+using Plots
+using OpenPMDBeamphysics
+using OpenPMDBeamphysics: pg_units, plottable_array, nice_array, nice_scale_prefix,
+    mathlabel, ptp, limits, in_t_coordinates, slice_statistics
+
+import OpenPMDBeamphysics: slice_plot, density_plot, marginal_plot, density_and_slice_plot
+
+using StatsBase: weights, fit, Histogram
+import StatsBase
+import Statistics
 
 # Default colormaps
 const CMAP0 = :viridis
@@ -21,7 +30,6 @@ function _sigma_ellipse(sigma_mat2; n=100)
     y = r1 .* sa .* cos.(t) .+ r2 .* ca .* sin.(t)
     return x, y
 end
-
 
 """
     slice_plot(particle_group, keys...; n_slice=40, slice_key=nothing, xlim=nothing, ylim=nothing, tex=true, kwargs...)
@@ -294,7 +302,7 @@ function marginal_plot(particle_group, key1="t", key2="p"; bins=nothing, xlim=no
     hist_x_width = diff(hist_x.edges[1])
     hist_x_y, hist_x_f, hist_x_prefix = nice_array(hist_x.weights ./ hist_x_width)
 
-    p_top = bar(hist_x_centers, hist_x_y, bar_width=hist_x_width, lw=0,color=:grey, xlim=plot_xlim, 
+    p_top = bar(hist_x_centers, hist_x_y, bar_width=hist_x_width, lw=0,color=:grey, xlim=plot_xlim,
                 xticks=false, xlabel="", legend=false)
     if u1 == "s"
         _, hist_x_prefix = nice_scale_prefix(hist_x_f/f1)
@@ -374,7 +382,6 @@ function density_and_slice_plot(particle_group, key1="t", key2="p"; stat_keys=["
     slice_dat["density"] = slice_dat["charge"] ./ slice_dat["ptp_" * key1]
 
     # Add slice statistics
-    # TODO: Need to check style
     p2 = twinx(p)
     x2 = slice_dat["mean_" * key1] ./ f1
     ulist = [pg_units(k) for k in stat_keys]
@@ -402,245 +409,4 @@ function density_and_slice_plot(particle_group, key1="t", key2="p"; stat_keys=["
     return p
 end
 
-#= # Field mesh plotting functions
-"""
-    plot_fieldmesh_cylindrical_2d(fm; component=nothing, time=nothing, aspect="auto", cmap=nothing, kwargs...)
-
-Plots a fieldmesh component in cylindrical coordinates.
-
-# Arguments
-- `fm`: FieldMesh object
-- `component`: Field component to plot (default: automatically determined)
-- `time`: Time point to plot (default: nothing)
-- `aspect`: Plot aspect ratio (default: "auto")
-- `cmap`: Colormap to use (default: CMAP1)
-
-# Returns
-- `p`: Plots.Plot object
-"""
-function plot_fieldmesh_cylindrical_2d(fm; component=nothing, time=nothing, aspect="auto", cmap=nothing, kwargs...)
-    @assert fm.geometry == "cylindrical"
-
-    if isnothing(component)
-        component = fm.is_pure_magnetic ? "B" : "E"
-    end
-
-    cmap = isnothing(cmap) ? CMAP1 : cmap
-    unit = fm.units(component)
-
-    xmin, _, zmin = fm.mins
-    xmax, _, zmax = fm.maxs
-
-    # Get data
-    dat = real_if_close(fm[component][:, 1, :])
-    dmin, dmax = extrema(dat)
-
-    # Create plot
-    p = heatmap(
-        dat,
-        xlims=(zmin, zmax),
-        ylims=(xmin, xmax),
-        aspect_ratio=aspect,
-        color=cmap,
-        clims=(dmin, dmax),
-        kwargs...
-    )
-
-    # Add labels
-    xlabel!(p, "z (m)")
-    ylabel!(p, "r (m)")
-    title!(p, "$component ($(unit))")
-
-    return p
-end
-
-"""
-    plot_fieldmesh_cylindrical_1d(fm; kwargs...)
-
-Plots the on-axis Ez and/or Bz from a FieldMesh with cylindrical geometry.
-
-# Arguments
-- `fm`: FieldMesh object
-
-# Returns
-- `p`: Plots.Plot object
-"""
-function plot_fieldmesh_cylindrical_1d(fm; kwargs...)
-    has_Ez = "electricField/z" in fm.components
-    has_Bz = "magneticField/z" in fm.components
-
-    z0 = fm.coord_vec("z")
-    p = plot(; kwargs...)
-
-    if has_Ez
-        Ez0 = fm["Ez"][1, 1, :]
-        plot!(p, z0, Ez0, color=:black, label="E_{z0}")
-        ylabel!(p, "E_z (V/m)")
-    end
-
-    if has_Bz
-        Bz0 = fm["Bz"][1, 1, :]
-        if has_Ez
-            p2 = twinx(p)
-            plot!(p2, z0, Bz0, color=:blue, label="B_{z0}")
-            ylabel!(p2, "B_z (T)")
-        else
-            plot!(p, z0, Bz0, color=:blue, label="B_{z0}")
-            ylabel!(p, "B_z (T)")
-        end
-    end
-
-    if has_Ez && has_Bz
-        plot!(p, legend=:topleft)
-        plot!(p2, legend=:topright)
-    end
-
-    xlabel!(p, "z (m)")
-    return p
-end
-
-"""
-    plot_fieldmesh_rectangular_1d(fm, field_component; kwargs...)
-
-Plots a field component from a FieldMesh with rectangular geometry.
-
-# Arguments
-- `fm`: FieldMesh object
-- `field_component`: Field component to plot (e.g., "Ex", "By")
-
-# Returns
-- `p`: Plots.Plot object
-"""
-function plot_fieldmesh_rectangular_1d(fm, field_component; kwargs...)
-    @assert field_component in ["Ex", "Ey", "Ez", "Bx", "By", "Bz"] "Unknown field component: $field_component"
-
-    fieldmesh_component = replace(field_component, "B" => "magneticField/", "E" => "electricField/")
-    @assert fieldmesh_component in fm.components "FieldMesh was missing field component: $field_component"
-
-    field_unit = fm.units(fieldmesh_component)
-    ylabel = "$(field_component[1])_$(field_component[2]) ($(field_unit))"
-    label = "$(field_component[1])_$(field_component[2])(x=y=0, z)"
-
-    z, field0 = fm.axis_values("z", field_component)
-
-    p = plot(; kwargs...)
-
-    if all(isapprox.(imag.(field0), 0))  # Close to real
-        if !fm.is_static
-            label = "Re[$label]"
-        end
-        plot!(p, z, real.(field0), label=label)
-    elseif all(isapprox.(real.(field0), 0))  # Close to imag
-        if !fm.is_static
-            label = "Im[$label]"
-        end
-        plot!(p, z, imag.(field0), label=label)
-    else  # Complex
-        plot!(p, z, real.(field0), label="Re[$label]")
-        plot!(p, z, imag.(field0), label="Im[$label]")
-    end
-
-    xlabel!(p, "z (m)")
-    ylabel!(p, ylabel)
-    plot!(p, legend=true)
-
-    return p
-end
-
-"""
-    plot_fieldmesh_rectangular_2d(fm; component=nothing, time=nothing, aspect="auto", cmap=nothing, kwargs...)
-
-Plots a field component from a FieldMesh with rectangular geometry.
-
-# Arguments
-- `fm`: FieldMesh object
-- `component`: Field component to plot (default: nothing)
-- `time`: Time point to plot (default: nothing)
-- `aspect`: Plot aspect ratio (default: "auto")
-- `cmap`: Colormap to use (default: CMAP1)
-
-# Returns
-- `p`: Plots.Plot object
-"""
-function plot_fieldmesh_rectangular_2d(fm; component=nothing, time=nothing, aspect="auto", cmap=nothing, kwargs...)
-    @assert fm.geometry == "rectangular"
-
-    # Determine coordinate and value
-    coordinate = "y"
-    coordinate_value = 0
-    for key in fm.axis_labels
-        if haskey(kwargs, key)
-            coordinate = key
-            coordinate_value = kwargs[key]
-            break
-        end
-    end
-
-    cmap = isnothing(cmap) ? CMAP1 : cmap
-
-    @assert component in ["Ex", "Ey", "Ez", "Bx", "By", "Bz"] "Unknown field component: $component"
-
-    x, y, z = fm.coord_vec.("x", "y", "z")
-    interpolator = fm.interpolator(component)
-    unit = fm.units(component)
-
-    xmin, ymin, zmin = fm.mins
-    xmax, ymax, zmax = fm.maxs
-
-    # Create meshgrid and interpolate
-    if coordinate == "x"
-        extent = [zmin, zmax, ymin, ymax]
-        xlabel = "z (m)"
-        ylabel = "y (m)"
-        a, b = meshgrid(y, z)
-        points = hcat(fill(coordinate_value, length(a)), vec(a), vec(b))
-    elseif coordinate == "y"
-        extent = [zmin, zmax, xmin, xmax]
-        xlabel = "z (m)"
-        ylabel = "x (m)"
-        a, b = meshgrid(x, z)
-        points = hcat(vec(a), fill(coordinate_value, length(a)), vec(b))
-    else  # z
-        extent = [xmin, xmax, ymin, ymax]
-        xlabel = "x (m)"
-        ylabel = "y (m)"
-        a, b = meshgrid(x, y)
-        points = hcat(vec(a), vec(b), fill(coordinate_value, length(a)))
-    end
-
-    interpolated_values = interpolator(points)
-    field_2d = reshape(interpolated_values, size(a))
-
-    field_2d, _, prefix = nice_array(field_2d)
-
-    # Create plot
-    p = plot(; kwargs...)
-
-    xlabel!(p, xlabel)
-    ylabel!(p, ylabel)
-
-    plane = "$coordinate = $coordinate_value"
-    llabel = "$(component[1])_$(component[2])($plane) ($prefix$(unit))"
-
-    if all(isapprox.(imag.(field_2d), 0))  # Close to real
-        heatmap!(p, real.(field_2d), aspect_ratio=aspect, color=cmap)
-        dmin, dmax = extrema(real.(field_2d))
-
-        if !fm.is_static
-            llabel = "Re[$llabel]"
-        end
-    elseif all(isapprox.(real.(field_2d), 0))  # Close to imag
-        heatmap!(p, imag.(field_2d), aspect_ratio=aspect, color=cmap)
-        dmin, dmax = extrema(imag.(field_2d))
-
-        if !fm.is_static
-            llabel = "Im[$llabel]"
-        end
-    else
-        error("Complex components not supported")
-    end
-
-    title!(p, llabel)
-    return p
-end
- =#
+end # module

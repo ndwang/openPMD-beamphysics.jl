@@ -2,7 +2,6 @@ module OpenPMDBeamphysics
 
 # External dependencies
 using HDF5
-using Plots
 using StatsBase: weights, fit, Histogram
 using LinearAlgebra: det
 using AtomicAndPhysicalConstants: Species, massof, chargeof, C_LIGHT, E_CHARGE
@@ -18,7 +17,6 @@ include("particles.jl")
 include("statistics.jl")
 include("writers.jl")
 include("labels.jl")
-include("plot.jl")
 
 # Export key types and constructors
 export ParticleGroup, single_particle
