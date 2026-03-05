@@ -189,6 +189,14 @@ function Base.show(io::IO, ::MIME"text/plain", pg::ParticleGroup)
     print(io, "ParticleGroup with $(length(pg)) particles (charge = $(charge(pg)) C)")
 end
 
+function Base.show(io::IO, pg::ParticleGroupView)
+    print(io, "ParticleGroupView with $(length(pg)) particles (charge = $(charge(pg)) C)")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", pg::ParticleGroupView)
+    print(io, "ParticleGroupView with $(length(pg)) particles (charge = $(charge(pg)) C)")
+end
+
 # ---- Statistics: proper Base/Statistics extensions ----
 
 function Base.minimum(pg::AbstractParticleGroup, key::AbstractString)
@@ -310,7 +318,7 @@ end
 # ---- getindex ----
 
 """
-    Base.getindex(pg::ParticleGroup, x)
+    Base.getindex(pg::AbstractParticleGroup, x)
 
 Returns a property or statistical quantity that can be computed:
 
@@ -320,10 +328,12 @@ Returns a property or statistical quantity that can be computed:
 - `P["cov_x__px"]` returns the covariance of x and px
 
 Parts can also be given. Example: `P[1:10]` returns a new ParticleGroup with the first 10 elements.
+For a ParticleGroup, integer/range indexing returns a new ParticleGroup (copy).
+For a ParticleGroupView, integer/range indexing returns a new ParticleGroupView.
 """
-function Base.getindex(pg::ParticleGroup, x)
+function Base.getindex(pg::AbstractParticleGroup, x)
     if !isa(x, AbstractString)
-        return particle_parts(pg, x)
+        return _index_particles(pg, x)
     end
 
     # Special case for z/c
@@ -362,6 +372,10 @@ function Base.getindex(pg::ParticleGroup, x)
 
     error("Unknown key: $x")
 end
+
+# Integer/range indexing: ParticleGroup returns a copy, ParticleGroupView returns a view
+_index_particles(pg::ParticleGroup, x) = particle_parts(pg, x)
+_index_particles(pg::ParticleGroupView, x) = ParticleGroupView(pg, x)
 
 # ---- Arithmetic and comparison ----
 

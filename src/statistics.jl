@@ -26,9 +26,9 @@ function norm_emit_calc(particle_group, planes=["x"])
 end
 
 # Convenience wrappers (moved from particles.jl)
-norm_emit_x(pg::ParticleGroup) = norm_emit_calc(pg, ["x"])
-norm_emit_y(pg::ParticleGroup) = norm_emit_calc(pg, ["y"])
-norm_emit_4d(pg::ParticleGroup) = norm_emit_calc(pg, ["x", "y"])
+norm_emit_x(pg::AbstractParticleGroup) = norm_emit_calc(pg, ["x"])
+norm_emit_y(pg::AbstractParticleGroup) = norm_emit_calc(pg, ["y"])
+norm_emit_4d(pg::AbstractParticleGroup) = norm_emit_calc(pg, ["x", "y"])
 
 """
     twiss_calc(sigma_mat2)
@@ -124,13 +124,13 @@ function twiss_dispersion(particle_group; plane="x", fraction=1, p0c=nothing)
 end
 
 """
-    twiss(pg::ParticleGroup; plane="x", fraction=1, p0c=nothing)
+    twiss(pg::AbstractParticleGroup; plane="x", fraction=1, p0c=nothing)
 
 Compute Twiss parameters for one or more planes.
 
 Returns a Dict with keys suffixed by plane, e.g. "alpha_x", "beta_x", etc.
 """
-function twiss(pg::ParticleGroup; plane="x", fraction=1, p0c=nothing)
+function twiss(pg::AbstractParticleGroup; plane="x", fraction=1, p0c=nothing)
     d = Dict{String,Float64}()
     for p in plane
         result = twiss_dispersion(pg, plane=string(p), fraction=fraction, p0c=p0c)

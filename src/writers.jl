@@ -134,11 +134,11 @@ function write_pmd_field(h5, data::Dict; name=nothing)
 end
 
 """
-    particle_data_dict(pg::ParticleGroup) -> Dict{String, Any}
+    particle_data_dict(pg::AbstractParticleGroup) -> Dict{String, Any}
 
-Extract a Dict from a ParticleGroup in the format expected by `write_pmd_bunch`.
+Extract a Dict from a ParticleGroup or ParticleGroupView in the format expected by `write_pmd_bunch`.
 """
-function particle_data_dict(pg::ParticleGroup)
+function particle_data_dict(pg::AbstractParticleGroup)
     return Dict{String, Any}(
         "x" => pg.x,
         "px" => pg.px,
@@ -157,12 +157,12 @@ function particle_data_dict(pg::ParticleGroup)
 end
 
 """
-    write_particle_group(filename::String, pg::ParticleGroup)
+    write_particle_group(filename::String, pg::AbstractParticleGroup)
 
-Write a ParticleGroup to an HDF5 file in openPMD format.
+Write a ParticleGroup or ParticleGroupView to an HDF5 file in openPMD format.
 This is the inverse of `ParticleGroup(filename::String)`.
 """
-function write_particle_group(filename::String, pg::ParticleGroup)
+function write_particle_group(filename::String, pg::AbstractParticleGroup)
     h5open(filename, "w") do h5
         pmd_init(h5)
         g = create_group(h5, "data/1")
