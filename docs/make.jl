@@ -11,7 +11,7 @@ makedocs(
     modules = [BeamPhysics, PlotsExt],
     format = Documenter.HTML(
         prettyurls = get(ENV, "CI", nothing) == "true",
-        canonical = "https://ndwang.github.io/openPMD-beamphysics",
+        canonical = "https://ndwang.github.io/BeamPhysics.jl",
     ),
     pages = [
         "Home" => "index.md",
@@ -29,6 +29,6 @@ makedocs(
 )
 
 deploydocs(
-    repo = "github.com/ndwang/openPMD-beamphysics.jl.git",
+    repo = "github.com/ndwang/BeamPhysics.jl.git",
     devbranch = "main",
 )

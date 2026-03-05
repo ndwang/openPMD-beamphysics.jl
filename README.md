@@ -8,7 +8,7 @@ Adapted from the Python implementation by Christopher Mayes.
 
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/ndwang/openPMD-beamphysics.jl")
+Pkg.add(url="https://github.com/ndwang/BeamPhysics.jl")
 ```
 
 ## Quick Start
@@ -28,4 +28,4 @@ fm["Bz"]            # scaled Bz component
 ## Documentation
 
 Full documentation including API reference is available at
-https://ndwang.github.io/openPMD-beamphysics.
+https://ndwang.github.io/BeamPhysics.jl.
