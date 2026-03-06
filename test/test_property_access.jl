@@ -54,10 +54,10 @@ const _PROP_BEAM = ParticleGroup(joinpath(@__DIR__, "initial_particles.h5"))
 
         @testset "cov_" begin
             pg = _PROP_BEAM
-            c = pg["cov_x__px"]
+            c = pg["cov_x_px"]
             @test isa(c, Number)
 
-            c_xx = pg["cov_x__x"]
+            c_xx = pg["cov_x_x"]
             @test c_xx ≈ pg["sigma_x"]^2  rtol=1e-10
         end
     end

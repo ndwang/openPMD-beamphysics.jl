@@ -446,11 +446,11 @@ end
 end
 
 @testset "pg_units — covariance" begin
-    u = pg_units("cov_x__px")
+    u = pg_units("cov_x_px")
     @test u.symbol == "m*eV/c"
     @test u.dims   == KNOWN_UNIT["m"].dims .+ KNOWN_UNIT["eV/c"].dims
 
-    u2 = pg_units("cov_x__x")
+    u2 = pg_units("cov_x_x")
     @test u2.symbol == "(m)^2"
     @test u2.dims   == (2., 0., 0., 0., 0., 0., 0.)
 end
