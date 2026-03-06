@@ -17,11 +17,13 @@ Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 BeamPhysicsPlotsExt = "Plots"
 
 [compat]
+AtomicAndPhysicalConstants = "0.9"
 HDF5 = "0.17"
+LinearAlgebra = "1"
 Plots = "1.40"
+Statistics = "1"
 StatsBase = "0.34"
 julia = "1.10"
-AtomicAndPhysicalConstants = "0.8.2"
 
 [extras]
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
