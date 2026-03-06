@@ -2,7 +2,7 @@
 
 A Julia package for beam physics analysis following the
 [openPMD-beamphysics](https://github.com/openPMD/openPMD-standard/blob/upcoming-2.0.0/EXT_BeamPhysics.md) standard.
-Adapted from the Python implementation by Christopher Mayes.
+Inspired by the Python package [openPMD-beamphysics](https://github.com/ChristopherMayes/openPMD-beamphysics).
 
 ## Installation
 
