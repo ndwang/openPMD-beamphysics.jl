@@ -16,7 +16,7 @@ PMDUnit
 ```@docs
 single_particle
 ParticleGroup(h5::HDF5.Group)
-ParticleGroup(file::String)
+ParticleGroup(file::AbstractString)
 ```
 
 ## Particle Derived Properties
@@ -123,6 +123,12 @@ write_pmd_bunch
 write_pmd_field
 particle_data_dict
 write_particle_group
+```
+
+## BeamTracking Extension
+
+```@docs
+BeamPhysicsBeamTrackingExt.BeamTracking.Bunch(::BeamPhysics.AbstractParticleGroup)
 ```
 
 ## Plotting

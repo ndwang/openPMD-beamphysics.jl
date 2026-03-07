@@ -21,6 +21,7 @@ makedocs(
             "Statistics" => "statistics.md",
             "I/O" => "io.md",
             "Plotting" => "plotting.md",
+            "BeamTracking" => "beamtracking.md",
         ],
         "API Reference" => "api.md",
     ],

@@ -40,6 +40,6 @@ coord_vec(fm, "z") # z coordinate vector
 ## Contents
 
 ```@contents
-Pages = ["particles.md", "fieldmesh.md", "statistics.md", "io.md", "plotting.md", "api.md"]
+Pages = ["particles.md", "fieldmesh.md", "statistics.md", "io.md", "plotting.md", "beamtracking.md", "api.md"]
 Depth = 2
 ```
