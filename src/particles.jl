@@ -535,11 +535,11 @@ function ParticleGroup(h5::HDF5.Group)
 end
 
 """
-    ParticleGroup(file::String)
+    ParticleGroup(file::AbstractString)
 
 Load particles into a ParticleGroup from an HDF5 file in openPMD format.
 """
-function ParticleGroup(file::String)
+function ParticleGroup(file::AbstractString)
     h5open(file, "r") do h5
         pp = particle_paths(h5)
         @assert length(pp) == 1 "Number of particle paths in $file is $(length(pp))."
