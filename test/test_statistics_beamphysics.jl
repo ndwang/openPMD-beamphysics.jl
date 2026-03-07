@@ -253,7 +253,7 @@ const _STAT_BEAM = ParticleGroup(joinpath(@__DIR__, "initial_particles.h5"))
             pg = _STAT_BEAM
             sigma2 = StatsBase.cov(
                 hcat(pg.x, pg.px ./ massof(Species("electron"))),
-                weights(pg.weight), 1
+                weights(pg.weight), 1; corrected=false
             )
             tw = twiss_calc(sigma2)
             J1 = particle_amplitude(pg; plane="x")

@@ -220,7 +220,7 @@ end
 
 function StatsBase.cov(pg::AbstractParticleGroup, keys::AbstractString...)
     dats = hcat([_resolve_key(pg, key) for key in keys]...)
-    return StatsBase.cov(dats, weights(pg.weight), 1)
+    return StatsBase.cov(dats, weights(pg.weight), 1; corrected=false)
 end
 
 function delta(pg::AbstractParticleGroup, key::AbstractString)

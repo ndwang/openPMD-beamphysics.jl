@@ -113,7 +113,7 @@ function twiss_dispersion(particle_group; plane="x", fraction=1, p0c=nothing)
     xp = P["p" * plane] ./ p0c
     d = P["p"] ./ P["mean_p"]  # - 1
 
-    sigma3 = StatsBase.cov([x xp d], weights(P.weight))
+    sigma3 = StatsBase.cov([x xp d], weights(P.weight); corrected=false)
 
     tw = twiss_dispersion(sigma3)
 
@@ -199,7 +199,7 @@ function particle_amplitude(particle_group; plane="x", twiss=nothing, mass_norma
     end
 
     if isnothing(twiss)
-        sigma_mat2 = StatsBase.cov(hcat(x, p), weights(particle_group.weight), 1)
+        sigma_mat2 = StatsBase.cov(hcat(x, p), weights(particle_group.weight), 1; corrected=false)
         twiss = twiss_calc(sigma_mat2)
     end
 
@@ -233,7 +233,7 @@ function normalized_particle_coordinate(particle_group, key; twiss=nothing, mass
     end
 
     if isnothing(twiss)
-        sigma_mat2 = StatsBase.cov(hcat(x, p), weights(particle_group.weight), 1)
+        sigma_mat2 = StatsBase.cov(hcat(x, p), weights(particle_group.weight), 1; corrected=false)
         twiss = twiss_calc(sigma_mat2)
     end
 
