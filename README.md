@@ -8,7 +8,7 @@ Inspired by the Python package [openPMD-beamphysics](https://github.com/Christop
 
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/ndwang/BeamPhysics.jl")
+Pkg.add("BeamPhysics")
 ```
 
 ## Quick Start
